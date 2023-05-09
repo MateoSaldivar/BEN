@@ -1,0 +1,9 @@
+{
+  "name": "com.zirodev.resources",
+  "displayName": "Resources",
+  "version": "0.0.1",
+  "unity": "2022.1",
+  "description": "main resources of my thesis game",
+  "keywords": [ "package", "unity", "thesis" ],
+  "dependencies": {}
+}

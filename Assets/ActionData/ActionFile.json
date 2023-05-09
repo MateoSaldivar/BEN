@@ -1,0 +1,45 @@
+{
+    "actions": [
+        {
+            "name": "WalkHome",
+            "preconditions": [],
+            "effects": [
+                {
+                    "key": "AtHome",
+                    "op": 0
+                }
+            ],
+            "connections": [],
+            "actionID": 0
+        },
+        {
+            "name": "WalkWork",
+            "preconditions": [],
+            "effects": [
+                {
+                    "key": "AtWork",
+                    "op": 0
+                }
+            ],
+            "connections": [],
+            "actionID": 1
+        },
+        {
+            "name": "WalkGather",
+            "preconditions": [
+                {
+                    "key": "HasGatherTarget",
+                    "op": 0
+                }
+            ],
+            "effects": [
+                {
+                    "key": "AtGatherArea",
+                    "op": 0
+                }
+            ],
+            "connections": [],
+            "actionID": 2
+        }
+    ]
+}

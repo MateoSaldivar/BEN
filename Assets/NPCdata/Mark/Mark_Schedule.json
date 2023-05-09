@@ -1,0 +1,19 @@
+{
+  "tasksByDay": {
+    "Monday": [
+      {
+        "startTime": 0.0,
+        "endTime": 23.0,
+        "day": 0,
+        "category": 5,
+        "action": "RunAwayFromAnna"
+      }
+    ],
+    "Tuesday": [],
+    "Wednesday": [],
+    "Thursday": [],
+    "Friday": [],
+    "Saturday": [],
+    "Sunday": []
+  }
+}

@@ -1,0 +1,22 @@
+
+newmtl TexturesCom_ConcreteLeaking0255_1_M
+Ka  1.0 1.0 1.0
+Kd  1.0 1.0 1.0
+Ks  1.0 1.0 1.0
+d  1.0
+Ns  0.0
+illum 2
+map_Kd TexturesCom_ConcreteLeaking0255_1_M.jpg
+
+
+
+newmtl TexturesCom_BrickMessy0175_2_M
+Ka  1.0 1.0 1.0
+Kd  1.0 1.0 1.0
+Ks  1.0 1.0 1.0
+d  1.0
+Ns  0.0
+illum 2
+map_Kd TexturesCom_BrickLargeSpecial0131_2_S.jpg
+
+

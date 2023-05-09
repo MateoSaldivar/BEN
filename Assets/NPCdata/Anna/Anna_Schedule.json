@@ -1,0 +1,26 @@
+{
+  "tasksByDay": {
+    "Monday": [
+      {
+        "startTime": 5.0,
+        "endTime": 10.0,
+        "day": 0,
+        "category": 5,
+        "action": "TalkToMarkInHouse"
+      },
+      {
+        "startTime": 10.0,
+        "endTime": 17.0,
+        "day": 0,
+        "category": 4,
+        "action": "GoShoppingInBakery"
+      }
+    ],
+    "Tuesday": [],
+    "Wednesday": [],
+    "Thursday": [],
+    "Friday": [],
+    "Saturday": [],
+    "Sunday": []
+  }
+}
