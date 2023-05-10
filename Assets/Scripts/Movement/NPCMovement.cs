@@ -15,6 +15,9 @@ public class NPCMovement : CharacterMovement {
     public bool stopped = false;
     private float cooldownTimer = 0f;
     private float freezeTime = 0f;
+
+    public bool walking = false;
+    public int targetNode;
     NPC main;
 
 	private void Awake() {

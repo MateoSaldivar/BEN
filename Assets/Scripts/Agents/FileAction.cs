@@ -28,6 +28,7 @@ public class FileAction {
     public string name;
     public WorldState[] preconditions;
     public WorldState[] effects;
+    public string utilityBelief;
     public int[] connections;
     public int actionID;
 

@@ -23,19 +23,17 @@ namespace BEN {
 		public Dictionary<int, Desire> desires;
 		public Dictionary<int, Emotion> currentEmotions;
 		public Intention currentIntention;
-		public Plan currentPlan;
 		private Personality personality;
 		#endregion
+
 		public Agent() {
 			beliefs = new OrderedMap<Belief>(30);
 			decomposingBeliefs = new List<Belief>(30);
 			desires = new Dictionary<int, Desire>(30);
 			currentIntention = null;
-			currentPlan = null;
 			personality = null;
 
 		}
-
 		public void InitializeActions(string jsonpath) {
 			actions = new Dictionary<int, Func<State>>();
 
@@ -47,13 +45,11 @@ namespace BEN {
 				actions[key] = null;
 			}
 		}
-
 		public void LoadNewAgent() {
 			beliefs = new OrderedMap<Belief>(30);
 			decomposingBeliefs = new List<Belief>(30);
 			desires = new Dictionary<int, Desire>(30);
 			currentIntention = null;
-			currentPlan = null;
 		}
 		public void UpdateBeliefs(float deltaTime) {
 			for (int i = decomposingBeliefs.Count - 1; i >= 0; i--) {
@@ -73,18 +69,10 @@ namespace BEN {
 		public void RemoveDesire(int ID) {
 			if(desires.ContainsKey(ID))desires.Remove(ID);
 		}
-
-		public State GetCurrentPlanState() {
-			if (currentPlan != null) {
-				return currentPlan.lastKnownState;
-			} else {
-				return State.Inactive;
-			}
-		}
 		public void SetPersonality(float O, float C, float E, float A, float N) {
 			personality = new Personality(O, C, E, A, N);
 		}
-		public void SetPersonality(Personality personality) {
+		public void SetPersonality(Personality personality) { 
 			this.personality = personality.CopyPersonality();
 		}
 		public Personality GetPersonality() {
@@ -244,40 +232,6 @@ namespace BEN {
 			this.preconditions = preconditions;
 		}
 	}
-	[Serializable]
-	public class Plan {
-		public string name;
-		public int priority;
-		public string intention;
-		public State lastKnownState;
-		public List<string> preconditions;
-		private List<Func<State>> actions;
-
-		private int actionIndex = 0;
-		public Plan(string name, string intention, params Func<BEN.State>[] actions) {
-			this.name = name;
-			this.priority = 0;
-			this.intention = intention;
-			this.actions = actions.ToList();
-			actionIndex = 0;
-		}
-		public Plan GetCopy() {
-			Func<State>[] actionsCopy = actions.ToArray();
-			Plan planCopy = new Plan(name, intention, actionsCopy);
-			planCopy.priority = priority;
-			planCopy.preconditions = preconditions != null ? new List<string>(preconditions) : null;
-			return planCopy;
-		}
-		public State Tick() {
-			while (true) {
-				State state = lastKnownState = actions[actionIndex].Invoke();//<-Tick action
-				if (state != State.Success) return state;
-				if (++actionIndex >= actions.Count) {
-					return State.Success;
-				}
-			}
-		}
-	}
 
 	[Serializable]
 	public class Action {
@@ -293,6 +247,7 @@ namespace BEN {
 		public string name;
 		public int[] connections;
 		public int actionID;
+		public int utilityBelief;
 		protected Func<State> action;
 
 		public Action() {
@@ -333,74 +288,6 @@ namespace BEN {
 			if(op == Effect.TRUE && (bool)check) return true;
 			if (op == Effect.FALSE && !(bool)check) return true;
 			else return false;
-		}
-
-		private static bool Compare(object left, string op, object right) {
-			switch (op) {
-				case "==":
-					return Equals(left, right);
-				case "!=":
-					return !Equals(left, right);
-				case ">":
-					return Comparer<object>.Default.Compare(left, right) < 0;
-				case ">=":
-					return Comparer<object>.Default.Compare(left, right) <= 0;
-				case "<":
-					return Comparer<object>.Default.Compare(left, right) > 0;
-				case "<=":
-					return Comparer<object>.Default.Compare(left, right) >= 0;
-				case "<>":
-					if (left is Interval intervalOUT) {
-						return !intervalOUT.Contains(right);
-					} else {
-						throw new ArgumentException("Invalid comparison with operator '<>'");
-					}
-				case "><":
-					if (left is Interval intervalIN) {
-						return intervalIN.Contains(right);
-					} else {
-						throw new ArgumentException("Invalid comparison with operator '><'");
-					}
-				default:
-					throw new ArgumentException("Invalid operator: " + op);
-			}
-		}
-
-		
-	}
-
-	[Serializable]
-	public class Interval {
-		public float Min;
-		public float Max;
-		public Interval(float min, float max) {
-			Min = min;
-			Max = max;
-		}
-
-		public bool Contains(object value) {
-			switch (value) {
-				case float floatValue:
-					return floatValue >= Min && floatValue <= Max;
-				case int intValue:
-					return intValue >= Min && intValue <= Max;
-				case double doubleValue:
-					return doubleValue >= Min && doubleValue <= Max;
-				default:
-					throw new ArgumentException("Invalid value type.");
-			}
-		}
-
-		public bool Contains(float value) {
-			return value >= Min && value <= Max;
-		}
-
-		public bool Contains(int value) {
-			return value >= Min && value <= Max;
-		}
-
-		public bool Contains(double value) {
-			return value >= Min && value <= Max;
 		}
 	}
 
@@ -457,6 +344,7 @@ namespace BEN {
 			SymbolTable.GetID(fileAction.name);
 
 			newAction.name = fileAction.name;
+			newAction.utilityBelief = SymbolTable.GetID(fileAction.utilityBelief);
 			newAction.actionID = fileAction.actionID;
 			newAction.connections = fileAction.connections;
 
@@ -493,7 +381,6 @@ namespace BEN {
 	public class FileActionWrapper {
 		public FileAction[] actions;
 	}
-
 
 	[Serializable]
 	public class Personality {
@@ -737,9 +624,6 @@ namespace BEN {
 			}
 		}
 	}
-
-	
-
 
 }
 

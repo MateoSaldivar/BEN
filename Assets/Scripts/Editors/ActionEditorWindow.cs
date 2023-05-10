@@ -145,7 +145,7 @@ namespace ActionEditor {
             }
 
             GUILayout.EndHorizontal();
-
+            fileAction.utilityBelief = EditorGUILayout.TextField("Utility Belief", fileAction.utilityBelief);
             DrawPreconditions(fileAction);
             DrawEffects(fileAction);
         }
