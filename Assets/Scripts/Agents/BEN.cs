@@ -64,15 +64,15 @@ namespace BEN {
 			//beliefsChanged = true;
 		}
 		public void AddDesire(Desire desire) {
-			desires.Add(desire.ID,desire);
+			desires.Add(desire.ID, desire);
 		}
 		public void RemoveDesire(int ID) {
-			if(desires.ContainsKey(ID))desires.Remove(ID);
+			if (desires.ContainsKey(ID)) desires.Remove(ID);
 		}
 		public void SetPersonality(float O, float C, float E, float A, float N) {
 			personality = new Personality(O, C, E, A, N);
 		}
-		public void SetPersonality(Personality personality) { 
+		public void SetPersonality(Personality personality) {
 			this.personality = personality.CopyPersonality();
 		}
 		public Personality GetPersonality() {
@@ -125,7 +125,7 @@ namespace BEN {
 		}
 	}
 	[Serializable]
-	public class Belief : MentalState{
+	public class Belief : MentalState {
 		public object value;
 		public Belief(string name, object value) {
 			this.ID = SymbolTable.GetID(name);
@@ -176,7 +176,7 @@ namespace BEN {
 		}
 	}
 	[Serializable]
-	public class Motivation : MentalState{
+	public class Motivation : MentalState {
 		public List<int> preconditions;
 		public int utilityID;
 		public bool IsAchievable(Agent agent) {
@@ -196,27 +196,27 @@ namespace BEN {
 		}
 	}
 	[Serializable]
-	public class Desire : Motivation{
-		public Desire(string name,float priority) {
+	public class Desire : Motivation {
+		public Desire(string name, float priority) {
 			this.name = name;
 			this.priority = priority;
 			preconditions = new List<int>();
 		}
-		public Desire(string name, float priority ,params int[] preconditions) {
+		public Desire(string name, float priority, params int[] preconditions) {
 			this.name = name;
-			this.priority =priority;
+			this.priority = priority;
 			this.preconditions = new List<int>(preconditions);
 		}
 	}
 	[Serializable]
-	public class Intention : Motivation{
+	public class Intention : Motivation {
 		public Intention(string name, float priority) {
 			this.name = name;
 			this.priority = priority;
 		}
-		public Intention(string name, float priority,List<int> preconditions) {
+		public Intention(string name, float priority, List<int> preconditions) {
 			this.name = name;
-			this.priority=priority;
+			this.priority = priority;
 			this.preconditions = preconditions;
 		}
 	}
@@ -251,7 +251,7 @@ namespace BEN {
 		protected Func<State> action;
 
 		public Action() {
-			this.preconditions = new OrderedMap<Effect> ();
+			this.preconditions = new OrderedMap<Effect>();
 		}
 
 		public Action(int preconditionid, Effect precondition, int effectid, Effect effect) {
@@ -269,8 +269,8 @@ namespace BEN {
 			while (!preconditions.CompletedList()) {
 				int ID = preconditions.GetCurrentKey();
 				Effect PreconditionItem = preconditions.GetCurrentValue();
-				
-				if (!Compare(agent.beliefs.Cycle(ID).value,PreconditionItem)) {
+
+				if (!Compare(agent.beliefs.Cycle(ID).value, PreconditionItem)) {
 					preconditions.ResetPointer();
 					agent.beliefs.ResetPointer();
 					return false;
@@ -285,7 +285,7 @@ namespace BEN {
 		}
 
 		private static bool Compare(object check, Effect op) {
-			if(op == Effect.TRUE && (bool)check) return true;
+			if (op == Effect.TRUE && (bool)check) return true;
 			if (op == Effect.FALSE && !(bool)check) return true;
 			else return false;
 		}
@@ -294,7 +294,9 @@ namespace BEN {
 	[Serializable]
 	public class ActionGraph {
 		public static ActionGraph instance;
-		private Dictionary<int,Action> actions;
+		private Dictionary<int, Action> actions;
+		public ActionReferences desireDictionary;
+
 
 		public static int[] GetActionKeys(string jsonPath) {
 			if (instance == null) {
@@ -322,12 +324,21 @@ namespace BEN {
 
 
 		public void Insert(Action action) {
-			actions[SymbolTable.GetID(action.name)] = action;
+			int actionID = SymbolTable.GetID(action.name);
+			actions[actionID] = action;
+
+			for (int i = 0; i < action.effects.length; i++) {
+				desireDictionary.AddReference(action.effects.GetKey(i), action.effects[i], actionID);
+			}
 		}
 
 		public void Remove(Action action) {
 			int actionID = SymbolTable.GetID(action.name);
 			actions.Remove(actionID);
+
+			for (int i = 0; i < action.effects.length; i++) {
+				desireDictionary.RemoveReference((action.effects.GetKey(i), action.effects[i]), actionID);
+			}
 		}
 		public void LoadActionsFromJson(string jsonFilePath) {
 			string json = File.ReadAllText(jsonFilePath);
@@ -378,6 +389,34 @@ namespace BEN {
 
 	}
 
+	[Serializable]
+	public class ActionReferences {
+		private Dictionary<(int, Action.Effect), List<int>> references;
+
+		public ActionReferences() {
+			references = new Dictionary<(int, Action.Effect), List<int>>();
+		}
+
+		public void AddReference(int worldStateID, Action.Effect effect, int actionID) {
+			var key = (worldStateID, effect);
+			if (!references.ContainsKey(key)) {
+				references[key] = new List<int>();
+			}
+			references[key].Add(actionID);
+		}
+
+		public void RemoveReference((int, Action.Effect) key, int actionID) {
+			if (references.ContainsKey(key)) {
+				references[key].Remove(actionID);
+			}
+		}
+
+		public List<int> GetReferences(int worldStateID, Action.Effect effect) {
+			var key = (worldStateID, effect);
+			return references.ContainsKey(key) ? references[key] : new List<int>();
+		}
+	}
+
 	public class FileActionWrapper {
 		public FileAction[] actions;
 	}
@@ -420,7 +459,7 @@ namespace BEN {
 	}
 
 	[Serializable]
-	public class Emotion  {
+	public class Emotion {
 
 		public string name;
 		public string predicate;
@@ -484,7 +523,7 @@ namespace BEN {
 		}
 
 		public static void Destroy() {
-			if(_IDTable != null) _IDTable.Clear();
+			if (_IDTable != null) _IDTable.Clear();
 			_IDTable = null;
 			_NextID = 0;
 		}
@@ -498,6 +537,7 @@ namespace BEN {
 		private (int, T)[] container;
 		private int lastIndex;
 		private int pointer;
+		public int length { get { return container.Length; } }
 
 		public OrderedMap() {
 			container = new (int, T)[DefaultCapacity];
@@ -622,6 +662,15 @@ namespace BEN {
 					throw new IndexOutOfRangeException();
 				}
 			}
+		}
+
+		public int GetKey(int index) {
+			if (index >= 0 && index < lastIndex) {
+				return container[index].Item1;
+			} else {
+				throw new IndexOutOfRangeException();
+			}
+
 		}
 	}
 
