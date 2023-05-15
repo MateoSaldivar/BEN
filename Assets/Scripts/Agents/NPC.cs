@@ -6,7 +6,7 @@ using System.Collections.Generic;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.Reflection;
 using AVA = AgentVariableAdjuster;
-using SY = BEN.SymbolTable;
+using SY = Utils.SymbolTable;
 using BEN;
 
 
