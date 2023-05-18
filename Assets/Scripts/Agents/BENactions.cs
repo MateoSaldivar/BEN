@@ -49,8 +49,8 @@ namespace BEN {
 			while (!preconditions.CompletedList()) {
 				int ID = preconditions.GetCurrentKey();
 				Effect PreconditionItem = preconditions.GetCurrentValue();
-
-				if (!Compare(agent.beliefs.Cycle(ID).value, PreconditionItem)) {
+				Belief belief = agent.beliefs.Cycle(ID);
+				if (belief == null || !Compare(belief.value, PreconditionItem)) {
 					preconditions.ResetPointer();
 					agent.beliefs.ResetPointer();
 					return false;
@@ -106,6 +106,7 @@ namespace BEN {
 
 
 		public void Insert(Action action) {
+			if (desireDictionary == null) desireDictionary = new ActionReferences();
 			int actionID = SymbolTable.GetID(action.name);
 			actions[actionID] = action;
 
@@ -137,7 +138,8 @@ namespace BEN {
 			SymbolTable.GetID(fileAction.name);
 
 			newAction.name = fileAction.name;
-			newAction.utilityBelief = SymbolTable.GetID(fileAction.utilityBelief);
+			
+			newAction.utilityBelief = fileAction.utilityBelief != ""? SymbolTable.GetID(fileAction.utilityBelief):0;
 			newAction.actionID = fileAction.actionID;
 			newAction.connections = fileAction.connections;
 
@@ -169,7 +171,13 @@ namespace BEN {
 			instance = null;
 		}
 
-		public static int[] GOAP(int id, Action.Effect effect, Agent agent) {
+		public static void MakePlan(int id, Action.Effect effect, Agent agent) {
+			int[] actionIndex = instance.GOAP(id, effect, agent);
+			foreach(int i in actionIndex)
+				agent.actionStack.AddAction(i);
+		}
+
+		private int[] GOAP(int id, Action.Effect effect, Agent agent) {
 			int[] desires = instance.desireDictionary.GetReferences(id, effect).ToArray();
 
 			float weightUtility = 1.0f; // Adjust this weight to balance utility
@@ -191,7 +199,7 @@ namespace BEN {
 				desires = desires.Where(a => a != current).ToArray();
 
 				foreach (int actionId in instance.actions[current].connections) {
-					float utility = GetUtility(actionId, agent);
+					float utility = 1;//GetUtility(actionId, agent);
 
 					if (!fScore.ContainsKey(actionId) || utility > fScore[actionId]) {
 						cameFrom[actionId] = current;
@@ -230,7 +238,11 @@ namespace BEN {
 		}
 
 		private static float GetUtility(int actionId, Agent agent) {
-			return (float)agent.beliefs[instance.actions[actionId].utilityBelief].value;
+			Belief belief;
+			if (agent.beliefs.TryGetValue(instance.actions[actionId].utilityBelief, out belief))
+				return (float)belief.value;
+			else
+				return 0f;
 		}
 
 	}
@@ -271,6 +283,7 @@ namespace BEN {
 	public class ActionStack {
 		private Stack<int> actionIds;
 		private Agent agent;
+		public bool empty { get { return actionIds.Count == 0; } set { } }
 
 		public ActionStack(Agent agent) {
 			this.agent = agent;

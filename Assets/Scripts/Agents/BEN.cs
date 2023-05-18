@@ -20,6 +20,7 @@ namespace BEN {
 		public Dictionary<int, Emotion> currentEmotions;
 		public Intention currentIntention;
 		private Personality personality;
+		public ActionStack actionStack;
 		#endregion
 
 		public Agent() {
@@ -28,14 +29,16 @@ namespace BEN {
 			desires = new Dictionary<int, Desire>(30);
 			currentIntention = null;
 			personality = null;
-
 		}
 		public void InitializeActions(string jsonpath) {
 			actions = new Dictionary<int, Func<State>>();
 
 			// Request the array of action keys from ActionGraph
 			var actionKeys = ActionGraph.GetActionKeys(jsonpath);
-
+			beliefs = new OrderedMap<Belief>(30);
+			decomposingBeliefs = new List<Belief>(30);
+			desires = new Dictionary<int, Desire>(30);
+			actionStack = new ActionStack(this);
 			// Set all the keys in the actions dictionary of the agent to the keys inside the actionGraph container
 			foreach (int key in actionKeys) {
 				actions[key] = null;

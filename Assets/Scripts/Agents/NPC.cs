@@ -7,6 +7,7 @@ using System.Runtime.Serialization.Formatters.Binary;
 using System.Reflection;
 using AVA = AgentVariableAdjuster;
 using SY = Utils.SymbolTable;
+using E = BEN.Action.Effect;
 using BEN;
 
 
@@ -85,7 +86,13 @@ public class NPC : MonoBehaviour {
 		SY.Destroy();
 		ActionGraph.Destroy();
 		LoadAgentData(gameObject.name);
-		agent.actions[SY.GetID("WalkHome")].Invoke();
+		ActionGraph.MakePlan(SY.GetID("Hungry"),E.FALSE,agent);
+
+		int counter = 0;
+		while (!agent.actionStack.empty && counter < 1000) {
+			counter++;
+			agent.actionStack.Tick();
+		}
 /*
 		Agent agent = new Agent();
 		agent.beliefs.Insert(SY("Healthy"),new Belief("Healthy",true));
@@ -97,6 +104,16 @@ public class NPC : MonoBehaviour {
 */
 	}
 
+	public State BuyFood() {
+		return State.Success;
+	}
+	public State Work() {
+		return State.Success;
+	}
+
+	public State Eat() {
+		return State.Success;
+	}
 	public State WalkHome() {
 		print("walking home");
 		mover.GetPath(homeAddress);

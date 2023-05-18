@@ -43,6 +43,66 @@
             "utilityBelief": "",
             "connections": [],
             "actionID": 2
+        },
+        {
+            "name": "BuyFood",
+            "preconditions": [
+                {
+                    "key": "HasMoney",
+                    "op": 0
+                }
+            ],
+            "effects": [
+                {
+                    "key": "HasFood",
+                    "op": 0
+                }
+            ],
+            "utilityBelief": "",
+            "connections": [
+                4
+            ],
+            "actionID": 3
+        },
+        {
+            "name": "Work",
+            "preconditions": [
+                {
+                    "key": "AtWork",
+                    "op": 0
+                }
+            ],
+            "effects": [
+                {
+                    "key": "HasMoney",
+                    "op": 0
+                }
+            ],
+            "utilityBelief": "",
+            "connections": [
+                1
+            ],
+            "actionID": 4
+        },
+        {
+            "name": "Eat",
+            "preconditions": [
+                {
+                    "key": "HasFood",
+                    "op": 0
+                }
+            ],
+            "effects": [
+                {
+                    "key": "Hungry",
+                    "op": 1
+                }
+            ],
+            "utilityBelief": "",
+            "connections": [
+                3
+            ],
+            "actionID": 5
         }
     ]
 }

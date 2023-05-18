@@ -6,7 +6,7 @@ namespace Utils {
 	[Serializable]
 	public class SymbolTable {
 		static private Dictionary<string, int> _IDTable;
-		static int _NextID = 0;
+		static int _NextID = 1;
 
 		public static int GetID(string key) {
 			if (string.IsNullOrEmpty(key)) {
@@ -55,7 +55,7 @@ namespace Utils {
 		private (int, T)[] container;
 		private int lastIndex;
 		private int pointer;
-		public int length { get { return container.Length; } }
+		public int length { get { return lastIndex; } }
 
 		public OrderedMap() {
 			container = new (int, T)[DefaultCapacity];
@@ -179,6 +179,18 @@ namespace Utils {
 				} else {
 					throw new IndexOutOfRangeException();
 				}
+			}
+		}
+
+		public bool TryGetValue(int key, out T value) {
+			int index = Array.BinarySearch(container, 0, lastIndex, (key, default(T)));
+
+			if (index >= 0) {
+				value = container[index].Item2;
+				return true;
+			} else {
+				value = default(T);
+				return false;
 			}
 		}
 
