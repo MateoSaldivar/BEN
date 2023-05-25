@@ -2,6 +2,7 @@
     "actions": [
         {
             "name": "WalkHome",
+            "environmentalPreconditions": [],
             "preconditions": [],
             "effects": [
                 {
@@ -15,6 +16,7 @@
         },
         {
             "name": "WalkWork",
+            "environmentalPreconditions": [],
             "preconditions": [],
             "effects": [
                 {
@@ -28,6 +30,7 @@
         },
         {
             "name": "WalkGather",
+            "environmentalPreconditions": [],
             "preconditions": [
                 {
                     "key": "HasGatherTarget",
@@ -46,6 +49,7 @@
         },
         {
             "name": "BuyFood",
+            "environmentalPreconditions": [],
             "preconditions": [
                 {
                     "key": "HasMoney",
@@ -66,6 +70,7 @@
         },
         {
             "name": "Work",
+            "environmentalPreconditions": [],
             "preconditions": [
                 {
                     "key": "AtWork",
@@ -86,6 +91,7 @@
         },
         {
             "name": "Eat",
+            "environmentalPreconditions": [],
             "preconditions": [
                 {
                     "key": "HasFood",

@@ -26,6 +26,7 @@ public class FileAction {
 
     }
     public string name;
+    public WorldState[] environmentalPreconditions;
     public WorldState[] preconditions;
     public WorldState[] effects;
     public string utilityBelief;

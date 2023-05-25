@@ -22,6 +22,7 @@ namespace BEN {
 			MINUS
 		}
 
+		public OrderedMap<Effect> enviromentalPreconditions;
 		public OrderedMap<Effect> preconditions;
 		public OrderedMap<Effect> effects;
 		public string name;
@@ -177,39 +178,40 @@ namespace BEN {
 				agent.actionStack.AddAction(i);
 		}
 
+		//possible optimization: create a queue of requests, run a request every frame, no more, 
+		//use a single static container to avoid realocating memory every query
 		private int[] GOAP(int id, Action.Effect effect, Agent agent) {
 			int[] desires = instance.desireDictionary.GetReferences(id, effect).ToArray();
+			Queue<int> actionQueue = new Queue<int>();
+			HashSet<int> visited = new HashSet<int>();
+			Dictionary<int, int> parent = new Dictionary<int, int>();
 
-			float weightUtility = 1.0f; // Adjust this weight to balance utility
-
-			Dictionary<int, float> fScore = new Dictionary<int, float>();
-			Dictionary<int, int> cameFrom = new Dictionary<int, int>();
-
-			foreach (int actionId in desires) {
-				fScore[actionId] = weightUtility * GetUtility(actionId, agent);
+			foreach (int i in desires) {
+				actionQueue.Enqueue(i);
+				visited.Add(i);
 			}
 
-			while (desires.Length > 0) {
-				int current = GetActionWithHighestFScore(desires, fScore);
-
-				if (instance.actions[current].CheckPreconditions(agent)) {
-					return ReconstructPath(cameFrom, current);
+			while(actionQueue.Count > 0) {
+				int current = actionQueue.Dequeue();
+				if (actions[current].CheckPreconditions(agent)) {
+					List<int> plan = new List<int>();
+					while(current != -1) {
+						plan.Insert(0, current);
+						current = parent.ContainsKey(current) ? parent[current] : -1;
+					}
+					return plan.ToArray();
 				}
-
-				desires = desires.Where(a => a != current).ToArray();
-
-				foreach (int actionId in instance.actions[current].connections) {
-					float utility = 1;//GetUtility(actionId, agent);
-
-					if (!fScore.ContainsKey(actionId) || utility > fScore[actionId]) {
-						cameFrom[actionId] = current;
-						fScore[actionId] = utility;
+				//using symbol table id instead of action id
+				foreach(int neighbor in actions[current].connections) {
+					int n_id = actions.ElementAt(neighbor).Key;
+					if (!visited.Contains(n_id)) {
+						actionQueue.Enqueue(n_id);
+						visited.Add(n_id);
+						parent.Add(n_id, current);
 					}
 				}
 			}
-
-
-			throw new Exception("No plan found. Unable to achieve the desired effect.");
+			return null;
 		}
 
 		private static int GetActionWithHighestFScore(int[] actions, Dictionary<int, float> fScore) {

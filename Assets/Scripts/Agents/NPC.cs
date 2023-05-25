@@ -105,13 +105,16 @@ public class NPC : MonoBehaviour {
 	}
 
 	public State BuyFood() {
+		print("buy food");
 		return State.Success;
 	}
 	public State Work() {
+		print("work");
 		return State.Success;
 	}
 
 	public State Eat() {
+		print("eat");
 		return State.Success;
 	}
 	public State WalkHome() {
@@ -120,9 +123,11 @@ public class NPC : MonoBehaviour {
 		return State.Success;
 	}
 	public State WalkWork() {
+		print("walkwork");
 		return State.Success;
 	}
 	public State WalkGather() {
+		print("walkgather");
 		return State.Success;
 	}
 

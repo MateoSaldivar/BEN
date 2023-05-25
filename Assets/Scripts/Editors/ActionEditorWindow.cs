@@ -146,13 +146,56 @@ namespace ActionEditor {
 
             GUILayout.EndHorizontal();
             fileAction.utilityBelief = EditorGUILayout.TextField("Utility Belief", fileAction.utilityBelief);
+            DrawEnvironmentalPreconditions(fileAction);
             DrawPreconditions(fileAction);
             DrawEffects(fileAction);
         }
 
 
 
+        void DrawEnvironmentalPreconditions(FileAction fileAction) {
+            // Draw the effects
+            if (fileAction.environmentalPreconditions == null) {
+                fileAction.environmentalPreconditions = new FileAction.WorldState[0];
+            }
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("Environmental Preconditions");
+            GUILayout.FlexibleSpace();
+            if (GUILayout.Button("+", GUILayout.Width(30))) {
+                Array.Resize(ref fileAction.environmentalPreconditions, fileAction.environmentalPreconditions.Length + 1);
+                fileAction.environmentalPreconditions[fileAction.environmentalPreconditions.Length - 1] = new FileAction.WorldState() {
+                    key = "Name",
+                    op = FileAction.EffectOp.TRUE
+                };
+            }
+            GUILayout.EndHorizontal();
 
+            List<int> effectsToRemove = new List<int>();
+
+            List<string> effectNames = new List<string>(Enum.GetNames(typeof(FileAction.EffectOp)));
+            for (int i = 0; i < fileAction.environmentalPreconditions.Length; i++) {
+                GUILayout.BeginHorizontal();
+                string key = EditorGUILayout.TextField(fileAction.environmentalPreconditions[i].key, GUILayout.Width(100));
+                FileAction.EffectOp value = fileAction.environmentalPreconditions[i].op;
+                GUILayout.Space(10);
+                int selectedIndex = effectNames.IndexOf(value.ToString());
+                selectedIndex = EditorGUILayout.Popup(selectedIndex, effectNames.ToArray(), GUILayout.Width(100));
+                value = (FileAction.EffectOp)Enum.Parse(typeof(FileAction.EffectOp), effectNames[selectedIndex]);
+                fileAction.environmentalPreconditions[i].key = key;
+                fileAction.environmentalPreconditions[i].op = value;
+                if (GUILayout.Button("-", GUILayout.Width(20))) {
+                    effectsToRemove.Add(i);
+                }
+                GUILayout.EndHorizontal();
+            }
+
+            // Remove the effects that were marked for removal
+            foreach (int index in effectsToRemove) {
+                List<FileAction.WorldState> tempList = new List<FileAction.WorldState>(fileAction.environmentalPreconditions);
+                tempList.RemoveAt(index);
+                fileAction.environmentalPreconditions = tempList.ToArray();
+            }
+        }
 
         void DrawPreconditions(FileAction fileAction) {
             // Draw the effects

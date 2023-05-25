@@ -4,6 +4,18 @@ using System.Collections.Generic;
 
 namespace Utils {
 	[Serializable]
+	public class WorldState {
+		public static OrderedMap<object> worldstate;
+		public static void SetUp() {
+			worldstate = new OrderedMap<object>();
+		}
+
+		public static void UpdateState(int id, object value) {
+			worldstate.UpdateValue(id, value);
+		}
+	}
+
+	[Serializable]
 	public class SymbolTable {
 		static private Dictionary<string, int> _IDTable;
 		static int _NextID = 1;
@@ -202,6 +214,20 @@ namespace Utils {
 			}
 
 		}
+
+		public void UpdateValue(int id, T newValue) {
+			int index = Array.BinarySearch(container, 0, lastIndex, (id, default(T)));
+
+			if (index >= 0) {
+				// Update the existing value
+				container[index] = (id, newValue);
+			} else {
+				// ID not found, insert the new value
+				Insert(id, newValue);
+			}
+		}
 	}
+
+
 
 }

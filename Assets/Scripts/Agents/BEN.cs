@@ -111,6 +111,7 @@ namespace BEN {
 			return em_j;
 		}
 	}
+
 	[Serializable]
 	public class MentalState {
 		public string name;
@@ -156,7 +157,6 @@ namespace BEN {
 			this.decompositionRate = decompositionRate;
 		}
 	}
-
 	[Serializable]
 	public class Ideal : MentalState {
 
