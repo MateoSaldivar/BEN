@@ -83,6 +83,7 @@ public class NPC : MonoBehaviour {
 	}
 
 	public void Test() {
+		if (Utils.WorldState.worldstate == null) Utils.WorldState.SetUp();
 		SY.Destroy();
 		ActionGraph.Destroy();
 		LoadAgentData(gameObject.name);

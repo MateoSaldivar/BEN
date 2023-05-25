@@ -22,46 +22,76 @@ namespace BEN {
 			MINUS
 		}
 
-		public OrderedMap<Effect> enviromentalPreconditions;
+		public OrderedMap<Effect> environmentalPreconditions;
 		public OrderedMap<Effect> preconditions;
 		public OrderedMap<Effect> effects;
 		public string name;
 		public int[] connections;
 		public int actionID;
 		public int utilityBelief;
-		protected Func<State> action;
+		protected Func<int,State> action;
 
 		public Action() {
 			this.preconditions = new OrderedMap<Effect>();
+			this.environmentalPreconditions = new OrderedMap<Effect>();
 		}
 
 		public Action(int preconditionid, Effect precondition, int effectid, Effect effect) {
 			this.preconditions = new OrderedMap<Effect>();
+			this.environmentalPreconditions = new OrderedMap<Effect>();
 			this.preconditions.Insert(preconditionid, precondition);
 			this.effects = new OrderedMap<Effect>();
 			this.effects.Insert(effectid, effect);
 		}
 
-		public State Tick() {
-			return action.Invoke();
+		public State Tick(int parameter_id = 0) {
+			return action.Invoke(parameter_id);
+		}
+		public virtual bool CheckPreconditions(Agent agent) {
+			if (CheckEnvironmentalPreconditions()) {
+				return CheckLocalPreconditions(agent);
+			}
+			return false;
 		}
 
-		public virtual bool CheckPreconditions(Agent agent) {
-			while (!preconditions.CompletedList()) {
-				int ID = preconditions.GetCurrentKey();
-				Effect PreconditionItem = preconditions.GetCurrentValue();
-				Belief belief = agent.beliefs.Cycle(ID);
-				if (belief == null || !Compare(belief.value, PreconditionItem)) {
-					preconditions.ResetPointer();
-					agent.beliefs.ResetPointer();
-					return false;
-				} else {
-					preconditions.Advance();
+		public virtual bool CheckEnvironmentalPreconditions() {
+			if (environmentalPreconditions.length > 0) {
+				while (!environmentalPreconditions.CompletedList()) {
+					int ID = environmentalPreconditions.GetCurrentKey();
+					Effect PreconditionItem = environmentalPreconditions.GetCurrentValue();
+					object state = WorldState.worldstate.Cycle(ID);
+					if (state == null || !Compare(state, PreconditionItem)) {
+						environmentalPreconditions.ResetPointer();
+						WorldState.worldstate.ResetPointer();
+						return false;
+					} else {
+						environmentalPreconditions.Advance();
+					}
 				}
+				environmentalPreconditions.ResetPointer();
+				WorldState.worldstate.ResetPointer();
 			}
+			return true;
+		}
 
-			preconditions.ResetPointer();
-			agent.beliefs.ResetPointer();
+		public virtual bool CheckLocalPreconditions(Agent agent) {
+			if (preconditions.length > 0) {
+				while (!preconditions.CompletedList()) {
+					int ID = preconditions.GetCurrentKey();
+					Effect PreconditionItem = preconditions.GetCurrentValue();
+					Belief belief = agent.beliefs.Cycle(ID);
+					if (belief == null || !Compare(belief.value, PreconditionItem)) {
+						preconditions.ResetPointer();
+						agent.beliefs.ResetPointer();
+						return false;
+					} else {
+						preconditions.Advance();
+					}
+				}
+
+				preconditions.ResetPointer();
+				agent.beliefs.ResetPointer();
+			}
 			return true;
 		}
 
@@ -143,6 +173,13 @@ namespace BEN {
 			newAction.utilityBelief = fileAction.utilityBelief != ""? SymbolTable.GetID(fileAction.utilityBelief):0;
 			newAction.actionID = fileAction.actionID;
 			newAction.connections = fileAction.connections;
+
+			// Translate environmentalpreconditions
+			for (int i = 0; i < fileAction.environmentalPreconditions.Length; i++) {
+				int preconditionID = SymbolTable.GetID(fileAction.environmentalPreconditions[i].key);
+				Action.Effect preconditionEffect = (Action.Effect)fileAction.environmentalPreconditions[i].op;
+				newAction.environmentalPreconditions.Insert(preconditionID, preconditionEffect);
+			}
 
 			// Translate preconditions
 			for (int i = 0; i < fileAction.preconditions.Length; i++) {

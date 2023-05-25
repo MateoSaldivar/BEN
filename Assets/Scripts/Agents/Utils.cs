@@ -11,6 +11,7 @@ namespace Utils {
 		}
 
 		public static void UpdateState(int id, object value) {
+			if(worldstate == null) SetUp();
 			worldstate.UpdateValue(id, value);
 		}
 	}
@@ -26,8 +27,9 @@ namespace Utils {
 			}
 
 			if (_IDTable == null) {
-				_NextID = 0;
+				_NextID = 1;
 				_IDTable = new Dictionary<string, int>();
+				_IDTable["none"] = 0;
 			}
 
 			if (_IDTable.ContainsKey(key)) {
