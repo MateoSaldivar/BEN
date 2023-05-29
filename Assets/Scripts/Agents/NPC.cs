@@ -105,59 +105,52 @@ public class NPC : MonoBehaviour {
 */
 	}
 
-	public State BuyFood() {
-		print("buy food");
+	public State BuyFood(int id = 0) {
+		print("buy food "+SY.GetString(id));
 		return State.Success;
 	}
-	public State Work() {
+	public State Work(int id = 0) {
 		print("work");
 		return State.Success;
 	}
 
-	public State Eat() {
+	public State Eat(int id = 0) {
 		print("eat");
 		return State.Success;
 	}
-	public State WalkHome() {
-		print("walking home");
-		mover.GetPath(homeAddress);
+	public State WalkTo(int id = 0) {
+		print("walking "+SY.GetString(id));
+		//mover.GetPath(homeAddress);
 		return State.Success;
 	}
-	public State WalkWork() {
-		print("walkwork");
-		return State.Success;
-	}
-	public State WalkGather() {
-		print("walkgather");
-		return State.Success;
-	}
+
 
 
 	public void InitializeActions(Agent agent) {
 		agent.InitializeActions(Application.dataPath + "/ActionData/ActionFile.json");
 		// Get all the NPC methods that return a State and have no parameters
-		Dictionary<string, Func<State>> npcActions = GetAllMethods();
+		Dictionary<string, Func<int, State>> npcActions = GetAllMethods();
 
 		int[] keys = ActionGraph.GetActionKeys(Application.dataPath + "/ActionData/ActionFile.json");
 
 		foreach (int key in keys) {
-			string actionName = SY.GetString(key);
-			if (npcActions.TryGetValue(actionName, out Func<State> npcAction)) {
+			string functionName = SY.GetString(ActionGraph.instance.GetAction(key).function);
+			if (npcActions.TryGetValue(functionName, out Func<int, State> npcAction)) {
 				agent.actions[key] = npcAction;
 			}
 		}
 	}
 
 
-	private Dictionary<string, Func<State>> GetAllMethods() {
-		Dictionary<string, Func<State>> npcActions = new Dictionary<string, Func<State>>();
+	private Dictionary<string, Func<int, State>> GetAllMethods() {
+		Dictionary<string, Func<int, State>> npcActions = new Dictionary<string, Func<int, State>>();
 		BindingFlags bindingFlags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
 		MethodInfo[] methods = GetType().GetMethods(bindingFlags);
 
 		foreach (MethodInfo method in methods) {
-			// Check if the method returns a State and has no parameters
-			if (method.ReturnType == typeof(State) && method.GetParameters().Length == 0) {
-				Func<State> func = (Func<State>)Delegate.CreateDelegate(typeof(Func<State>), this, method);
+			// Check if the method returns a State and has a single integer parameter
+			if (method.ReturnType == typeof(State) && method.GetParameters().Length == 1 && method.GetParameters()[0].ParameterType == typeof(int)) {
+				Func<int, State> func = (Func<int, State>)Delegate.CreateDelegate(typeof(Func<int, State>), this, method);
 				npcActions[method.Name] = func;
 			}
 		}

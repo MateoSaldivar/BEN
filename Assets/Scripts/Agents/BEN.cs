@@ -13,7 +13,7 @@ namespace BEN {
 	public class Agent {
 
 		#region Variables
-		public Dictionary<int, Func<State>> actions;
+		public Dictionary<int, Func<int, State>> actions;
 		public OrderedMap<Belief> beliefs;
 		private List<Belief> decomposingBeliefs;
 		public Dictionary<int, Desire> desires;
@@ -31,7 +31,7 @@ namespace BEN {
 			personality = null;
 		}
 		public void InitializeActions(string jsonpath) {
-			actions = new Dictionary<int, Func<State>>();
+			actions = new Dictionary<int, Func<int, State>>();
 
 			// Request the array of action keys from ActionGraph
 			var actionKeys = ActionGraph.GetActionKeys(jsonpath);

@@ -1,7 +1,7 @@
 {
     "actions": [
         {
-            "name": "WalkHome",
+            "name": "WalkTo_Home",
             "environmentalPreconditions": [],
             "preconditions": [],
             "effects": [
@@ -15,7 +15,7 @@
             "actionID": 0
         },
         {
-            "name": "WalkWork",
+            "name": "WalkTo_Work",
             "environmentalPreconditions": [],
             "preconditions": [],
             "effects": [
@@ -29,7 +29,7 @@
             "actionID": 1
         },
         {
-            "name": "WalkGather",
+            "name": "WalkTo_Gather",
             "environmentalPreconditions": [],
             "preconditions": [
                 {

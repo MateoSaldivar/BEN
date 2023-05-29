@@ -28,8 +28,10 @@ namespace BEN {
 		public string name;
 		public int[] connections;
 		public int actionID;
+		public int function;
 		public int utilityBelief;
-		protected Func<int,State> action;
+		public int parameterID;
+		protected Func<int, State> action;
 
 		public Action() {
 			this.preconditions = new OrderedMap<Effect>();
@@ -168,9 +170,23 @@ namespace BEN {
 			Action newAction = new Action();
 			SymbolTable.GetID(fileAction.name);
 
+			// Extract the substring before the underscore
+			int underscoreIndex = fileAction.name.IndexOf('_');
+			string extractedName = (underscoreIndex >= 0)
+				? fileAction.name.Substring(0, underscoreIndex)
+				: fileAction.name;
+
 			newAction.name = fileAction.name;
-			
-			newAction.utilityBelief = fileAction.utilityBelief != ""? SymbolTable.GetID(fileAction.utilityBelief):0;
+			newAction.function = SymbolTable.GetID(extractedName);
+
+			// Extract the second part as a parameter
+			string parameter = (underscoreIndex >= 0 && underscoreIndex < fileAction.name.Length - 1)
+				? fileAction.name.Substring(underscoreIndex + 1)
+				: string.Empty;
+
+			newAction.parameterID = parameter != string.Empty ? SymbolTable.GetID(parameter) : 0;
+
+			newAction.utilityBelief = fileAction.utilityBelief != "" ? SymbolTable.GetID(fileAction.utilityBelief) : 0;
 			newAction.actionID = fileAction.actionID;
 			newAction.connections = fileAction.connections;
 
@@ -211,7 +227,7 @@ namespace BEN {
 
 		public static void MakePlan(int id, Action.Effect effect, Agent agent) {
 			int[] actionIndex = instance.GOAP(id, effect, agent);
-			foreach(int i in actionIndex)
+			foreach (int i in actionIndex)
 				agent.actionStack.AddAction(i);
 		}
 
@@ -228,18 +244,18 @@ namespace BEN {
 				visited.Add(i);
 			}
 
-			while(actionQueue.Count > 0) {
+			while (actionQueue.Count > 0) {
 				int current = actionQueue.Dequeue();
 				if (actions[current].CheckPreconditions(agent)) {
 					List<int> plan = new List<int>();
-					while(current != -1) {
+					while (current != -1) {
 						plan.Insert(0, current);
 						current = parent.ContainsKey(current) ? parent[current] : -1;
 					}
 					return plan.ToArray();
 				}
 				//using symbol table id instead of action id
-				foreach(int neighbor in actions[current].connections) {
+				foreach (int neighbor in actions[current].connections) {
 					int n_id = actions.ElementAt(neighbor).Key;
 					if (!visited.Contains(n_id)) {
 						actionQueue.Enqueue(n_id);
@@ -251,37 +267,16 @@ namespace BEN {
 			return null;
 		}
 
-		private static int GetActionWithHighestFScore(int[] actions, Dictionary<int, float> fScore) {
-			int maxAction = actions[0];
-			float maxFScore = fScore[maxAction];
-
-			foreach (int actionId in actions) {
-				if (fScore[actionId] > maxFScore) {
-					maxAction = actionId;
-					maxFScore = fScore[actionId];
-				}
-			}
-
-			return maxAction;
-		}
-
-		private static int[] ReconstructPath(Dictionary<int, int> cameFrom, int current) {
-			List<int> path = new List<int> { current };
-
-			while (cameFrom.ContainsKey(current)) {
-				current = cameFrom[current];
-				path.Insert(0, current);
-			}
-
-			return path.ToArray();
-		}
-
-		private static float GetUtility(int actionId, Agent agent) {
+		public static float GetUtility(int actionId, Agent agent) {
 			Belief belief;
 			if (agent.beliefs.TryGetValue(instance.actions[actionId].utilityBelief, out belief))
 				return (float)belief.value;
 			else
 				return 0f;
+		}
+
+		public Action GetAction(int id) {
+			return instance.actions[id];
 		}
 
 	}
@@ -312,6 +307,8 @@ namespace BEN {
 			var key = (worldStateID, effect);
 			return references.ContainsKey(key) ? references[key] : new List<int>();
 		}
+
+		
 	}
 
 	public class FileActionWrapper {
@@ -339,9 +336,9 @@ namespace BEN {
 			}
 
 			int currentActionId = actionIds.Peek();
-			var currentAction = agent.actions[currentActionId];
-
-			State state = agent.actions[currentActionId].Invoke();
+			Func<int,State> currentAction = agent.actions[currentActionId];
+			
+			State state = currentAction.Invoke(ActionGraph.instance.GetAction(currentActionId).parameterID);
 
 			if (state == State.Success) {
 				actionIds.Pop();
@@ -354,3 +351,4 @@ namespace BEN {
 		}
 	}
 }
+
