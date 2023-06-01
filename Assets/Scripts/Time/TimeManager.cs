@@ -43,20 +43,7 @@ public static class TimeStamps {
 public class TimeManager : MonoBehaviour {
 	private static TimeManager instance;
 
-	public static TimeManager Instance {
-		get {
-			if (instance == null) {
-				instance = FindObjectOfType<TimeManager>();
-				if (instance == null) {
-					GameObject obj = new GameObject();
-					obj.name = typeof(TimeManager).Name;
-					instance = obj.AddComponent<TimeManager>();
-					DontDestroyOnLoad(obj);
-				}
-			}
-			return instance;
-		}
-	}
+	
 	public event Action OnHourChanged;
 	public float timeMultiplier = 1f;
 	private float gameHour;

@@ -2,6 +2,7 @@ using UnityEngine;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using GR = GlobalRegistry;
 /*
 * ZiroDev Copyright(c)
 *
@@ -144,8 +145,8 @@ public class FloydWarshall : MonoBehaviour {
 
 	public static Queue<Node> ConstructPath(Node currentNode, Node targetNode) {
 
-		int currentIndex = Array.IndexOf(WayPointContainer.instance.nodes, currentNode);
-		int targetIndex = Array.IndexOf(WayPointContainer.instance.nodes, targetNode);
+		int currentIndex = Array.IndexOf(GR.WayPointContainer.nodes, currentNode);
+		int targetIndex = Array.IndexOf(GR.WayPointContainer.nodes, targetNode);
 
 		if (PathData[currentIndex, targetIndex] == -1) return null;
 		
@@ -170,7 +171,7 @@ public class FloydWarshall : MonoBehaviour {
 	static Queue<Node> CreateQueueFromList(List<int> indices) {
 		Queue<Node> queue = new Queue<Node>();
 		foreach (int index in indices) {
-			queue.Enqueue(WayPointContainer.instance.nodes[index]);
+			queue.Enqueue(GR.WayPointContainer.nodes[index]);
 		}
 		return queue;
 	}

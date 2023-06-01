@@ -16,7 +16,7 @@ public class NPCMovementEditor : Editor {
         nodeId = EditorGUILayout.TextField("Node ID", nodeId);
         if (GUILayout.Button("Get Path")) {
             movement.path.Clear();
-            movement.GetPath(nodeId);
+            movement.GetPath(Utils.SymbolTable.GetID(nodeId));
             nodeId = "";
         }
         EditorGUILayout.EndHorizontal();

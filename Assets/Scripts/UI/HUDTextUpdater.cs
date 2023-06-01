@@ -19,13 +19,13 @@ public class HUDTextUpdater : MonoBehaviour {
     }
 
     void Update() {
-        timeText.text = TimeManager.Instance.GetTimeText();
-        moneyText.text = Player.instance.GetMoney();
+        timeText.text = GlobalRegistry.TimeManager.GetTimeText();
+        moneyText.text = GlobalRegistry.Player.GetMoney();
 
-        int timeOfDay = (int)TimeManager.Instance.GetTimeOfDay();
+        int timeOfDay = (int)GlobalRegistry.TimeManager.GetTimeOfDay();
         if (lastValue != timeOfDay) {
             lastValue = timeOfDay;
-            timeIcon.SetTrigger(TimeManager.Instance.GetTimeOfDay().ToString());
+            timeIcon.SetTrigger(GlobalRegistry.TimeManager.GetTimeOfDay().ToString());
         }
 
     }

@@ -7,7 +7,7 @@ public class DynamicDisableable : MonoBehaviour {
     public bool visible = true;
 	private void Update() {
         if (ObjectManager.IsCurrentAreaOrNeighbor(currentArea)) {
-            float distanceX = Mathf.Abs(transform.position.x - Player.instance.transform.position.x);
+            float distanceX = Mathf.Abs(transform.position.x - GlobalRegistry.Player.transform.position.x);
             if (distanceX <= ObjectManager.instance.xDistance) {
                 EnableObject();
             } else {

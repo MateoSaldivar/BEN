@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
+using GR = GlobalRegistry;
 
 public class ObjectManager : MonoBehaviour {
     public static ObjectManager instance;
@@ -13,7 +14,7 @@ public class ObjectManager : MonoBehaviour {
 	}
 
 	private void Update() {
-        playerCurrentArea = Player.instance.currentArea;
+        playerCurrentArea = GR.Player.currentArea;
 
         // Only check for objects in other areas if player's current area changed
         if (playerCurrentArea != previousPlayerArea) {
@@ -35,8 +36,8 @@ public class ObjectManager : MonoBehaviour {
         AreaTrigger currentArea = AreaContainer.instance.areas[playerCurrentArea];
         AreaTrigger[] currentNeighbors = currentArea.neighbours;
         foreach (StaticDisableable obj in currentArea.objects) {
-            float distanceX = Mathf.Abs(obj.transform.position.x - Player.instance.transform.position.x);
-            float distanceY = Mathf.Abs(obj.transform.position.z - Player.instance.transform.position.z);
+            float distanceX = Mathf.Abs(obj.transform.position.x - GR.Player.transform.position.x);
+            float distanceY = Mathf.Abs(obj.transform.position.z - GR.Player.transform.position.z);
             if (distanceX <= xDistance && distanceY <= yDistance) {
                 obj.EnableObject();
             } else {
@@ -45,8 +46,8 @@ public class ObjectManager : MonoBehaviour {
         }
         foreach (AreaTrigger neighborArea in currentNeighbors) {
             foreach (StaticDisableable obj in neighborArea.objects) {
-                float distanceX = Mathf.Abs(obj.transform.position.x - Player.instance.transform.position.x);
-                float distanceY = Mathf.Abs(obj.transform.position.y - Player.instance.transform.position.y);
+                float distanceX = Mathf.Abs(obj.transform.position.x - GR.Player.transform.position.x);
+                float distanceY = Mathf.Abs(obj.transform.position.y - GR.Player.transform.position.y);
                 if (distanceX <= xDistance && distanceY <= yDistance ) {
                     obj.EnableObject();
                 } else {
@@ -57,8 +58,8 @@ public class ObjectManager : MonoBehaviour {
     }
 
     public static bool IsCurrentAreaOrNeighbor(int areaIndex) {
-        AreaTrigger playerCurrentArea = AreaContainer.instance.areas[Player.instance.currentArea];
-        return areaIndex == Player.instance.currentArea || ArrayContainsValue(AreaContainer.instance.areas[areaIndex].neighbours, playerCurrentArea);
+        AreaTrigger playerCurrentArea = AreaContainer.instance.areas[GR.Player.currentArea];
+        return areaIndex == GR.Player.currentArea || ArrayContainsValue(AreaContainer.instance.areas[areaIndex].neighbours, playerCurrentArea);
     }
 
 

@@ -7,14 +7,19 @@ public class Node : MonoBehaviour {
     [HideInInspector] public Vector2 position;
     public int Index;
     public string id;
+    [HideInInspector] public int id_num;
     public float radius;
     public Node[] Neighbours;
 
     private void Awake() {
+        
         position = new Vector2(transform.position.x, transform.position.z);
     }
+	private void Start() {
+        id_num = Utils.SymbolTable.GetID(id);
+    }
 
-    public Vector2 GetRandomPositionInsideRadius() {
+	public Vector2 GetRandomPositionInsideRadius() {
         float randomAngle = Random.Range(0f, 360f);
         float randomDistance = Random.Range(0f, radius);
         float x = position.x + randomDistance * Mathf.Cos(randomAngle);

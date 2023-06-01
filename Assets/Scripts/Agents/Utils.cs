@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-
+using ST = Utils.SymbolTable;
 
 namespace Utils {
 	[Serializable]

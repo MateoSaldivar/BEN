@@ -87,16 +87,21 @@ public class ScheduleEditorWindow : EditorWindow {
 	}
 
 	private void Load() {
-		string filePath = EditorUtility.OpenFilePanel("Load Schedule", "Assets/NPCdata", "json");
-		if (!string.IsNullOrEmpty(filePath)) {
-			string json = File.ReadAllText(filePath);
-			schedule = JsonConvert.DeserializeObject<Schedule>(json);
+		string folderPath = EditorUtility.OpenFolderPanel("Select Folder", "Assets/NPCdata", "");
 
-			string fileName = Path.GetFileNameWithoutExtension(filePath);
-			string[] nameParts = fileName.Split('_');
+		if (!string.IsNullOrEmpty(folderPath)) {
+			string[] filePaths = Directory.GetFiles(folderPath, "*_schedule.json");
+			if (filePaths.Length > 0) {
+				string json = File.ReadAllText(filePaths[0]);
+				schedule = JsonConvert.DeserializeObject<Schedule>(json);
 
-			if (nameParts.Length > 0) {
-				agentName = nameParts[0];
+				string folderName = Path.GetFileName(folderPath);
+				agentName = folderName;
+			} else {
+				// Create a new schedule if the file doesn't exist
+				agentName = Path.GetFileName(folderPath);
+				schedule = new Schedule(agentName);
+				
 			}
 		}
 	}

@@ -1,7 +1,9 @@
 using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
-using AVA = AgentVariableAdjuster;
+using ST = Utils.SymbolTable;
+using GR = GlobalRegistry;
+
 /*
 * ZiroDev Copyright(c)
 *
@@ -11,7 +13,7 @@ public class NPCMovement : CharacterMovement {
     public Node LastNode;
     [HideInInspector] public Queue<Node> path;
     private bool hasReachedTarget = true;
-
+  
     public bool stopped = false;
     private float cooldownTimer = 0f;
     private float freezeTime = 0f;
@@ -26,20 +28,22 @@ public class NPCMovement : CharacterMovement {
 	}
 	void Start() {
         path = new Queue<Node>();
-        if(LastNode == null) LastNode = WayPointContainer.instance.GetClosestNode(this);
+        if(LastNode == null) LastNode = GR.WayPointContainer.GetClosestNode(this);
     }
 
-    public void GetPath(string id) {
-        if (id == "") return;
-
-        if (LastNode == null) LastNode = WayPointContainer.instance.GetClosestNode(this);
-
-        Node targetNode = WayPointContainer.IdReferencer[id];
-        path = new Queue<Node>(FloydWarshall.ConstructPath(LastNode, targetNode));
+    public void GetPath(int id) {
+        if (id == 0) return;
+        
+        if (LastNode == null) LastNode = GR.WayPointContainer.GetClosestNode(this);
+        targetNode = id;
+        Node target = WayPointContainer.IdReferencer[id];
+        
+        path = new Queue<Node>(FloydWarshall.ConstructPath(LastNode, target));
     }
 
     void Update() {
         if (path?.Count > 0) {
+            walking = true;
             if (hasReachedTarget) {
                 Node nextNode = path.Peek();
                 if (nextNode.radius > 0) {
@@ -63,6 +67,8 @@ public class NPCMovement : CharacterMovement {
             if(!stopped) MoveTowardsPoint(targetPosition);
             else Move(Vector3.zero);
         } else {
+            targetNode = 0;
+            walking = false;
             Move(Vector3.zero);
 		}
         ApplyGravity();

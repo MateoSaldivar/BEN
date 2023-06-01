@@ -1,6 +1,8 @@
 using UnityEngine;
 using UnityEditor;
 using System.Collections.Generic;
+using Utils;
+using ST = Utils.SymbolTable;
 using BEN;
 /*
 * ZiroDev Copyright(c)
@@ -8,18 +10,17 @@ using BEN;
 */
 public class WayPointContainer : MonoBehaviour {
 	public bool ShowGraph = true;
-	public static WayPointContainer instance;
-	public static Dictionary<string,Node> IdReferencer = new Dictionary<string,Node>();
+	public static Dictionary<int,Node> IdReferencer = new Dictionary<int,Node>();
 	public Node[] nodes;
 
 
 
 
-	private void Awake() {
-		instance = this;
+	private void Start() {
 		nodes = GetComponentsInChildren<Node>();
 		foreach(Node n in nodes) {
-			IdReferencer.Add(n.id, n);
+			n.id_num = SymbolTable.GetID(n.id);
+			IdReferencer.Add(n.id_num, n);
 		}
 
 		FloydWarshall.LoadData();

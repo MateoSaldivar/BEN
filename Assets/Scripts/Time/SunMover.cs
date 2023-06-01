@@ -3,6 +3,7 @@ using UnityEditor;
 using System.Collections ;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
+using GR = GlobalRegistry;
 
 public class SunMover : MonoBehaviour {
 
@@ -54,7 +55,7 @@ public class SunMover : MonoBehaviour {
     }
 
     void RotateSun() {
-        float gameTime = TimeManager.Instance.GetGameTime();
+        float gameTime = GR.TimeManager.GetGameTime();
         float rotation = middayRotation + (gameTime / dayLength) * 360f;
 
         Vector3 globalZAxis = Vector3.forward;
@@ -69,7 +70,7 @@ public class SunMover : MonoBehaviour {
     private Color currentVolumeColor;
     private float temperatureChangeSpeed = 2f;
     void SetTemperatureOfLight() {
-        TimeOfDay timeOfDay = TimeManager.Instance.GetTimeOfDay();
+        TimeOfDay timeOfDay = GR.TimeManager.GetTimeOfDay();
 
         switch (timeOfDay) {
             case TimeOfDay.Dusk:
@@ -124,7 +125,7 @@ public class SunMover : MonoBehaviour {
 
     float CalculateTransitionSpeed() {
         float desiredTimeInterval = TimeStamps.dawnEnd-TimeStamps.dawnStart;
-        return 1 / (desiredTimeInterval / TimeManager.Instance.timeMultiplier);
+        return 1 / (desiredTimeInterval / GR.TimeManager.timeMultiplier);
     }
 
     public void SetRotationForTime(float time) {

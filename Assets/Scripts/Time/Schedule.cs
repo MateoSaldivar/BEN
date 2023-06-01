@@ -1,6 +1,8 @@
 using System.Collections.Generic;
 using UnityEngine;
 using System;
+using ST = Utils.SymbolTable;
+using GR = GlobalRegistry;
 
 public enum TaskCategory {
     None,
@@ -23,13 +25,14 @@ public class S_Task {
     public DayOfWeek day;
     public TaskCategory category;
     public string action;
-
+    public int actionID;
     public S_Task(float startTime, float endTime, DayOfWeek day, TaskCategory category, string action) {
         this.startTime = startTime;
         this.endTime = endTime;
         this.day = day;
         this.category = category;
         this.action = action;
+        actionID = ST.GetID(action);
     }
 }
 
@@ -97,20 +100,20 @@ public class Schedule {
         }
     }
 
-    public string GetCurrentTask() {
-        DayOfWeek currentDay = (DayOfWeek)(((TimeManager.Instance.GetGameDay() - 1) % 7));
-        float currentTime = TimeManager.Instance.GetGameTime();
+    public int GetCurrentTask() {
+        DayOfWeek currentDay = (DayOfWeek)(((GR.TimeManager.GetGameDay() - 1) % 7));
+        float currentTime = GR.TimeManager.GetGameTime();
 
         // Check the tasks for the current day, in order of starting time
         if (tasksByDay.ContainsKey(currentDay)) {
             foreach (S_Task task in tasksByDay[currentDay]) {
                 if (currentTime >= task.startTime && currentTime < task.endTime) {
-                    return task.action;
+                    return task.actionID;
                 }
             }
         }
 
-        return "No task scheduled";
+        return 0;
     }
 
     public S_Task GetTask(int hour, DayOfWeek day) {

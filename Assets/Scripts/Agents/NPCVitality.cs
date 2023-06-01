@@ -1,5 +1,6 @@
 using UnityEngine;
 using AVA = AgentVariableAdjuster;
+using GR = GlobalRegistry;
 
 public class NPCVitality : MonoBehaviour {
 
@@ -22,11 +23,11 @@ public class NPCVitality : MonoBehaviour {
     }
 
     void Start() {
-        TimeManager.Instance.OnHourChanged += OnHourChanged;
+        GR.TimeManager.OnHourChanged += OnHourChanged;
     }
 
     private void OnDestroy() {
-        TimeManager.Instance.OnHourChanged -= OnHourChanged;
+        GR.TimeManager.OnHourChanged -= OnHourChanged;
     }
 
     void Update() {
@@ -43,7 +44,7 @@ public class NPCVitality : MonoBehaviour {
 
     private void UpdateEnergy() {
         energy -= main.actioner.excertion * AVA.energyDecreaseRate * Time.deltaTime;
-        if(energy < 0.1f && TimeManager.Instance.GetTimeOfDay()== TimeOfDay.Night) {
+        if(energy < 0.1f && GR.TimeManager.GetTimeOfDay()== TimeOfDay.Night) {
             
 		}
     }
@@ -53,7 +54,7 @@ public class NPCVitality : MonoBehaviour {
     }
 
     private void UpdateTemperature(float clothingHeatValue) {
-        float worldTemperature = TimeManager.Instance.temperature;
+        float worldTemperature = GR.TimeManager.temperature;
         float adjustedTemperature = worldTemperature + clothingHeatValue;
         temperature =  adjustedTemperature;
     }

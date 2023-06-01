@@ -1,10 +1,11 @@
 using UnityEngine;
+using GR = GlobalRegistry;
 /*
 * ZiroDev Copyright(c)
 *
 */
 public class AreaTrigger : MonoBehaviour {
-
+	
 	public int area;
 	public AreaTrigger[] neighbours;
 	public StaticDisableable[] objects;
@@ -13,9 +14,10 @@ public class AreaTrigger : MonoBehaviour {
 		objects = GetComponentsInChildren<StaticDisableable>();
 	}
 	private void OnTriggerEnter(Collider other) {
+		
 		if (other.CompareTag("Player")) {
-			Player.instance.currentArea = area;
-			Player.instance.prevArea = 0;
+			GR.Player.currentArea = area;
+			GR.Player.prevArea = 0;
 		}
 		if (other.CompareTag("NPC")) {
 			other.GetComponent<DynamicDisableable>().currentArea = area;
@@ -24,8 +26,8 @@ public class AreaTrigger : MonoBehaviour {
 
 	private void OnTriggerExit(Collider other) {
 		if (other.CompareTag("Player")) {
-			Player.instance.currentArea = 0;
-			Player.instance.prevArea = area;
+			GR.Player.currentArea = 0;
+			GR.Player.prevArea = area;
 		}
 	}
 }

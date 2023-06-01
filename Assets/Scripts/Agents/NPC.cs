@@ -5,8 +5,9 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.Reflection;
-using AVA = AgentVariableAdjuster;
-using SY = Utils.SymbolTable;
+using Newtonsoft.Json;
+using ST = Utils.SymbolTable;
+using GR = GlobalRegistry;
 using E = BEN.Action.Effect;
 using BEN;
 
@@ -84,10 +85,10 @@ public class NPC : MonoBehaviour {
 
 	public void Test() {
 		if (Utils.WorldState.worldstate == null) Utils.WorldState.SetUp();
-		SY.Destroy();
+		ST.Destroy();
 		ActionGraph.Destroy();
 		LoadAgentData(gameObject.name);
-		ActionGraph.MakePlan(SY.GetID("Hungry"),E.FALSE,agent);
+		ActionGraph.MakePlan(ST.GetID("Hungry"),E.FALSE,agent);
 
 		int counter = 0;
 		while (!agent.actionStack.empty && counter < 1000) {
@@ -106,7 +107,7 @@ public class NPC : MonoBehaviour {
 	}
 
 	public State BuyFood(int id = 0) {
-		print("buy food "+SY.GetString(id));
+		print("buy food "+ST.GetString(id));
 		return State.Success;
 	}
 	public State Work(int id = 0) {
@@ -118,10 +119,23 @@ public class NPC : MonoBehaviour {
 		print("eat");
 		return State.Success;
 	}
+
 	public State WalkTo(int id = 0) {
-		print("walking "+SY.GetString(id));
-		//mover.GetPath(homeAddress);
-		return State.Success;
+		int node;
+		if(id == ST.GetID("Home")) {
+			node = ST.GetID(homeAddress);
+		}else if(id == ST.GetID("Work")) {
+			node = ST.GetID(workAddress);
+		} else {
+			node = id;
+		}
+		if (mover.LastNode.id_num == node) return State.Success;
+
+		if(!mover.walking || mover.targetNode != node) {
+			mover.GetPath(node);
+		}
+
+		return State.Running;
 	}
 
 
@@ -134,7 +148,7 @@ public class NPC : MonoBehaviour {
 		int[] keys = ActionGraph.GetActionKeys(Application.dataPath + "/ActionData/ActionFile.json");
 
 		foreach (int key in keys) {
-			string functionName = SY.GetString(ActionGraph.instance.GetAction(key).function);
+			string functionName = ST.GetString(ActionGraph.instance.GetAction(key).function);
 			if (npcActions.TryGetValue(functionName, out Func<int, State> npcAction)) {
 				agent.actions[key] = npcAction;
 			}
@@ -215,15 +229,26 @@ public class NPC : MonoBehaviour {
 	}
 
 	public void LoadAgentData(string name) {
-		string path = Application.dataPath + "/NPCdata/" + name + "/agentData" + name + ".data";
-		if (File.Exists(path)) {
+		// Load agent data
+		string agentDataPath = Application.dataPath + "/NPCdata/" + name + "/agentData" + name + ".data";
+		if (File.Exists(agentDataPath)) {
 			BinaryFormatter formatter = new BinaryFormatter();
-			FileStream stream = new FileStream(path, FileMode.Open);
+			FileStream stream = new FileStream(agentDataPath, FileMode.Open);
 			agent = formatter.Deserialize(stream) as BEN.Agent;
 			stream.Close();
 		}
 		agent.LoadNewAgent();
-		
+
+		// Load schedule
+		string schedulePath = Application.dataPath + "/NPCdata/" + name + "/" + name + "_Schedule.json";
+		if (File.Exists(schedulePath)) {
+			string json = File.ReadAllText(schedulePath);
+			schedule = JsonConvert.DeserializeObject<Schedule>(json);
+		} else {
+			// Create a new schedule if the file doesn't exist
+			schedule = new Schedule(name);
+		}
+
 		InitializeActions(agent);
 	}
 
@@ -267,7 +292,7 @@ public class NPC : MonoBehaviour {
 
 
 	public void ResumeMovementIfPlayerIsGone(float detectionRadius) {
-		if (mover.stopped && closeAgents.Contains(Player.instance.agent)) {
+		if (mover.stopped && closeAgents.Contains(GR.Player.agent)) {
 			// Player was in closeAgents list
 			int playerLayerMask = 1 << LayerMask.NameToLayer("Player");
 
@@ -277,7 +302,7 @@ public class NPC : MonoBehaviour {
 			// Check if the player is within the sphere
 			if (!Physics.CheckSphere(sphereOrigin, detectionRadius, playerLayerMask)) {
 				// Player is no longer in the vicinity
-				closeAgents.Remove(Player.instance.agent);
+				closeAgents.Remove(GR.Player.agent);
 				mover.stopped = false;
 			}
 		}

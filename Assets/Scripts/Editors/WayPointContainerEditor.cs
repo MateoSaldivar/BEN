@@ -30,7 +30,7 @@ public class WayPointContainerEditor : Editor {
 				UnityEngine.Debug.LogError("PathData is null, make sure you load the data before calling this method.");
 				return;
 			}
-			WayPointContainer.instance = _target;
+			GlobalRegistry.WayPointContainer = _target;
 			int i = 0;
 			Stopwatch stopwatch = new Stopwatch();
 			stopwatch.Start();
