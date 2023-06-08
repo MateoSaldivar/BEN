@@ -8,7 +8,6 @@ using System.Reflection;
 using Newtonsoft.Json;
 using ST = Utils.SymbolTable;
 using GR = GlobalRegistry;
-using E = BEN.Action.Effect;
 using BEN;
 
 
@@ -88,7 +87,7 @@ public class NPC : MonoBehaviour {
 		ST.Destroy();
 		ActionGraph.Destroy();
 		LoadAgentData(gameObject.name);
-		ActionGraph.MakePlan(ST.GetID("Hungry"),E.FALSE,agent);
+		ActionGraph.MakePlan(ST.GetID("Hungry"),false,agent);
 
 		int counter = 0;
 		while (!agent.actionStack.empty && counter < 1000) {
@@ -98,9 +97,6 @@ public class NPC : MonoBehaviour {
 /*
 		Agent agent = new Agent();
 		agent.beliefs.Insert(SY("Healthy"),new Belief("Healthy",true));
-
-		BEN.Action heal = new BEN.Action();
-		heal.preconditions.Insert(SY("Healthy"), BEN.Action.Effect.TRUE);
 
 		print(heal.CheckPreconditions(agent));
 */
@@ -121,6 +117,7 @@ public class NPC : MonoBehaviour {
 	}
 
 	public State WalkTo(int id = 0) {
+		return State.Success;
 		int node;
 		if(id == ST.GetID("Home")) {
 			node = ST.GetID(homeAddress);
@@ -138,7 +135,12 @@ public class NPC : MonoBehaviour {
 		return State.Running;
 	}
 
-
+	public void Request(string fact, State state, string utility, params (int,State)[] preconditions) {
+		int key = ST.GetID(fact);
+		if (!agent.desires.ContainsKey(key)) {
+			agent.desires.Insert(key, new Desire(fact,state,ST.GetID(utility),preconditions));
+		}
+	}
 
 	public void InitializeActions(Agent agent) {
 		agent.InitializeActions(Application.dataPath + "/ActionData/ActionFile.json");
@@ -172,43 +174,7 @@ public class NPC : MonoBehaviour {
 		return npcActions;
 	}
 
-	//public void Test() {
-	//	PlanLibrary.ClearPlans();
-	//	Agent agent = new Agent();
-
-	//	// Initialize the "isNight" and "isDay" beliefs
-	//	agent.AddBelief("isNight", true);
-
-	//	// Add the "GoToSleep" and "GoToWork" desires
-	//	agent.AddDesire(new Desire("intention1", "isNight"));
-
-	//	Plan plan = new Plan(
-	//		"Name", "intention1",
-	//		() => MoveTo("Home"),
-	//		() => MoveTo("Work"),
-	//		() => MoveTo("Bed")
-	//		);
-	//	PlanLibrary.AddPlan(plan);
-
-	//	// Update the agent's beliefs and execute the current plan until it has completed
-	//	int loopCount = 0;
-	//	while (agent.Update(Time.deltaTime) != BEN.State.Inactive && loopCount < 1000) loopCount++;
-
-
-	//}
-
-	//int tmp = 3;
-	//public BEN.State MoveTo(string location) {
-	//	print("Moving to " + location + " progress: " + tmp);
-
-	//	tmp--;
-	//	if (tmp == 0) {
-	//		tmp = 3;
-	//		return BEN.State.Success;
-	//	} else {
-	//		return BEN.State.Running;
-	//	}
-	//}
+	
 
 
 

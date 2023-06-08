@@ -15,12 +15,7 @@ public class SerializableFileActions {
 
 [Serializable]
 public class FileAction {
-    public enum EffectOp {
-        TRUE,
-        FALSE,
-        PLUS,
-        MINUS
-    }
+    
 
     public FileAction() {
 
@@ -36,6 +31,6 @@ public class FileAction {
     [Serializable]
     public class WorldState {
         public string key;
-        public EffectOp op;
+        public bool op;
     }
 }

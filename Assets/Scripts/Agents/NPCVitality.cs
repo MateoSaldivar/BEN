@@ -51,6 +51,9 @@ public class NPCVitality : MonoBehaviour {
 
     private void UpdateHunger() {
         hungerFill -= main.actioner.excertion * AVA.hungerDecreaseRate * Time.deltaTime;
+        if(hungerFill < 0.1f) {
+            
+		}
     }
 
     private void UpdateTemperature(float clothingHeatValue) {

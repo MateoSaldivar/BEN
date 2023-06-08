@@ -25,6 +25,7 @@ public enum DayOfWeek {
 	Saturday,
 	Sunday,
 	Always,
+	None
 }
 
 public static class TemperatureRange {

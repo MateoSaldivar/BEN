@@ -165,22 +165,19 @@ namespace ActionEditor {
                 Array.Resize(ref fileAction.environmentalPreconditions, fileAction.environmentalPreconditions.Length + 1);
                 fileAction.environmentalPreconditions[fileAction.environmentalPreconditions.Length - 1] = new FileAction.WorldState() {
                     key = "Name",
-                    op = FileAction.EffectOp.TRUE
+                    op = true
                 };
             }
             GUILayout.EndHorizontal();
 
             List<int> effectsToRemove = new List<int>();
 
-            List<string> effectNames = new List<string>(Enum.GetNames(typeof(FileAction.EffectOp)));
             for (int i = 0; i < fileAction.environmentalPreconditions.Length; i++) {
                 GUILayout.BeginHorizontal();
                 string key = EditorGUILayout.TextField(fileAction.environmentalPreconditions[i].key, GUILayout.Width(100));
-                FileAction.EffectOp value = fileAction.environmentalPreconditions[i].op;
+                bool value = fileAction.environmentalPreconditions[i].op;
                 GUILayout.Space(10);
-                int selectedIndex = effectNames.IndexOf(value.ToString());
-                selectedIndex = EditorGUILayout.Popup(selectedIndex, effectNames.ToArray(), GUILayout.Width(100));
-                value = (FileAction.EffectOp)Enum.Parse(typeof(FileAction.EffectOp), effectNames[selectedIndex]);
+                value = EditorGUILayout.Toggle(value, GUILayout.Width(100));
                 fileAction.environmentalPreconditions[i].key = key;
                 fileAction.environmentalPreconditions[i].op = value;
                 if (GUILayout.Button("-", GUILayout.Width(20))) {
@@ -209,22 +206,20 @@ namespace ActionEditor {
                 Array.Resize(ref fileAction.preconditions, fileAction.preconditions.Length + 1);
                 fileAction.preconditions[fileAction.preconditions.Length - 1] = new FileAction.WorldState() {
                     key = "Name",
-                    op = FileAction.EffectOp.TRUE
+                    op = true
                 };
             }
             GUILayout.EndHorizontal();
 
             List<int> effectsToRemove = new List<int>();
 
-            List<string> effectNames = new List<string>(Enum.GetNames(typeof(FileAction.EffectOp)));
             for (int i = 0; i < fileAction.preconditions.Length; i++) {
                 GUILayout.BeginHorizontal();
                 string key = EditorGUILayout.TextField(fileAction.preconditions[i].key, GUILayout.Width(100));
-                FileAction.EffectOp value = fileAction.preconditions[i].op;
+                bool value = fileAction.preconditions[i].op;
                 GUILayout.Space(10);
-                int selectedIndex = effectNames.IndexOf(value.ToString());
-                selectedIndex = EditorGUILayout.Popup(selectedIndex, effectNames.ToArray(), GUILayout.Width(100));
-                value = (FileAction.EffectOp)Enum.Parse(typeof(FileAction.EffectOp), effectNames[selectedIndex]);
+                int selectedIndex = value ? 0 : 1;
+                value = EditorGUILayout.Toggle(value, GUILayout.Width(100));
                 fileAction.preconditions[i].key = key;
                 fileAction.preconditions[i].op = value;
                 if (GUILayout.Button("-", GUILayout.Width(20))) {
@@ -253,22 +248,20 @@ namespace ActionEditor {
                 Array.Resize(ref fileAction.effects, fileAction.effects.Length + 1);
                 fileAction.effects[fileAction.effects.Length - 1] = new FileAction.WorldState() {
                     key = "Name",
-                    op = FileAction.EffectOp.TRUE
+                    op = true
                 };
             }
             GUILayout.EndHorizontal();
 
             List<int> effectsToRemove = new List<int>();
 
-            List<string> effectNames = new List<string>(Enum.GetNames(typeof(FileAction.EffectOp)));
             for (int i = 0; i < fileAction.effects.Length; i++) {
                 GUILayout.BeginHorizontal();
                 string key = EditorGUILayout.TextField(fileAction.effects[i].key, GUILayout.Width(100));
-                FileAction.EffectOp value = fileAction.effects[i].op;
+                bool value = fileAction.effects[i].op;
                 GUILayout.Space(10);
-                int selectedIndex = effectNames.IndexOf(value.ToString());
-                selectedIndex = EditorGUILayout.Popup(selectedIndex, effectNames.ToArray(), GUILayout.Width(100));
-                value = (FileAction.EffectOp)Enum.Parse(typeof(FileAction.EffectOp), effectNames[selectedIndex]);
+                int selectedIndex = value ? 0 : 1;
+                value = EditorGUILayout.Toggle(value, GUILayout.Width(100));
                 fileAction.effects[i].key = key;
                 fileAction.effects[i].op = value;
                 if (GUILayout.Button("-", GUILayout.Width(20))) {
@@ -284,6 +277,7 @@ namespace ActionEditor {
                 fileAction.effects = tempList.ToArray();
             }
         }
+
 
         void DrawButtons() {
             GUIStyle buttonStyle = new GUIStyle(GUI.skin.button);

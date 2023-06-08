@@ -16,7 +16,8 @@ namespace BEN {
 		public Dictionary<int, Func<int, State>> actions;
 		public OrderedMap<Belief> beliefs;
 		private List<Belief> decomposingBeliefs;
-		public Dictionary<int, Desire> desires;
+		public OrderedMap<Desire> desires;
+		public OrderedMap<Obligation> obligations;
 		public Dictionary<int, Emotion> currentEmotions;
 		public Intention currentIntention;
 		private Personality personality;
@@ -26,7 +27,7 @@ namespace BEN {
 		public Agent() {
 			beliefs = new OrderedMap<Belief>(30);
 			decomposingBeliefs = new List<Belief>(30);
-			desires = new Dictionary<int, Desire>(30);
+			desires = new OrderedMap<Desire>(30);
 			currentIntention = null;
 			personality = null;
 		}
@@ -37,7 +38,7 @@ namespace BEN {
 			var actionKeys = ActionGraph.GetActionKeys(jsonpath);
 			beliefs = new OrderedMap<Belief>(30);
 			decomposingBeliefs = new List<Belief>(30);
-			desires = new Dictionary<int, Desire>(30);
+			desires = new OrderedMap<Desire>(30);
 			actionStack = new ActionStack(this);
 			// Set all the keys in the actions dictionary of the agent to the keys inside the actionGraph container
 			foreach (int key in actionKeys) {
@@ -47,7 +48,7 @@ namespace BEN {
 		public void LoadNewAgent() {
 			beliefs = new OrderedMap<Belief>(30);
 			decomposingBeliefs = new List<Belief>(30);
-			desires = new Dictionary<int, Desire>(30);
+			desires = new OrderedMap<Desire>(30);
 			currentIntention = null;
 		}
 		public void UpdateBeliefs(float deltaTime) {
@@ -62,8 +63,55 @@ namespace BEN {
 		public void CheckBeliefs() {
 			//beliefsChanged = true;
 		}
+
+		public void MakeDecision() {
+			if (!KeepCurrentIntention()) {
+
+			}
+		}
+
+		bool KeepCurrentIntention() {
+			if(currentIntention == null)return false;
+
+			return true;
+		}
+
+		public void MakeIntention() {
+			Intention tmp = null;
+			if (ObeyObligations()) {
+				tmp = ChooseIntention(obligations);
+			} else {
+
+			}
+		}
+
+		public bool ObeyObligations() {
+			return false;
+		}
+
+		public Intention ChooseIntention<T>(OrderedMap<T> container) where T : Motivation {
+
+			float totalUtility = 0;
+			for(int i = 0; i < container.length; i++) {
+				float util = beliefs.ContainsKey(container[i].utilityID) ? (float)beliefs[container[i].utilityID].value : 0;
+				totalUtility += util;
+			}
+
+			float randomValue = UnityEngine.Random.Range(0f, totalUtility);
+
+			for (int i = 0; i < container.length; i++) {
+				float util = beliefs.ContainsKey(container[i].utilityID) ? (float)beliefs[container[i].utilityID].value : 0;
+				totalUtility -= util;
+
+				if (randomValue <= 0 && container[i].CheckEnvironmentalPreconditions()) {
+					return Motivation.TranslateToIntent(container[i]);
+				}
+			}
+			return null;
+		}
+
 		public void AddDesire(Desire desire) {
-			desires.Add(desire.ID, desire);
+			desires.Insert(desire.ID, desire);
 		}
 		public void RemoveDesire(int ID) {
 			if (desires.ContainsKey(ID)) desires.Remove(ID);
@@ -176,12 +224,14 @@ namespace BEN {
 	}
 	[Serializable]
 	public class Motivation : MentalState {
-		public List<int> preconditions;
+		public (int, State) desiredState;
+		public List<(int,State)> preconditions;
+		public List<(int,State)> environmentalPreconditions;
 		public int utilityID;
 		public bool IsAchievable(Agent agent) {
 			return true;
 		}
-		public void AddPrecondition(int precondition) {
+		public void AddPrecondition((int,State) precondition) {
 			preconditions.Add(precondition);
 		}
 		public Intention ToIntention(Agent agent) {
@@ -189,22 +239,39 @@ namespace BEN {
 			//	return null;
 			//}
 			Intention intention = new Intention(name, priority);
-			intention.preconditions = new List<int>(preconditions);
+			intention.preconditions = new List<(int, State)>(preconditions);
 
 			return intention;
 		}
+
+		public virtual bool CheckEnvironmentalPreconditions() {
+			
+			return true;
+		}
+
+		public static Intention TranslateToIntent(Motivation motivation) {
+			if (motivation is Desire desire) {
+				return new Intention(desire.name, desire.priority, desire.preconditions);
+			} else if (motivation is Obligation obligation) {
+				return new Intention(obligation.name, obligation.priority, obligation.preconditions);
+			} else {
+				// Handle other cases or throw an exception if needed
+				return null;
+			}
+		}
+
 	}
 	[Serializable]
 	public class Desire : Motivation {
-		public Desire(string name, float priority) {
+		public Desire(string name) {
 			this.name = name;
-			this.priority = priority;
-			preconditions = new List<int>();
+			preconditions = new List<(int, State)>();
 		}
-		public Desire(string name, float priority, params int[] preconditions) {
+		public Desire(string name, State state ,int utilityID = 0, params (int,State)[] preconditions) {
 			this.name = name;
-			this.priority = priority;
-			this.preconditions = new List<int>(preconditions);
+			this.desiredState = (SymbolTable.GetID(name),state);
+			this.utilityID = utilityID;
+			this.preconditions = new List<(int, State)>(preconditions);
 		}
 	}
 	[Serializable]
@@ -213,7 +280,7 @@ namespace BEN {
 			this.name = name;
 			this.priority = priority;
 		}
-		public Intention(string name, float priority, List<int> preconditions) {
+		public Intention(string name, float priority, List<(int,State)> preconditions) {
 			this.name = name;
 			this.priority = priority;
 			this.preconditions = preconditions;
@@ -225,7 +292,7 @@ namespace BEN {
 			this.name = name;
 			this.priority = priority;
 		}
-		public Obligation(string name, float priority, List<int> preconditions) {
+		public Obligation(string name, float priority, List<(int,State)> preconditions) {
 			this.name = name;
 			this.priority = priority;
 			this.preconditions = preconditions;

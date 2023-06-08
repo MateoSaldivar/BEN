@@ -7,7 +7,7 @@
             "effects": [
                 {
                     "key": "AtHome",
-                    "op": 0
+                    "op": true
                 }
             ],
             "utilityBelief": "",
@@ -21,7 +21,7 @@
             "effects": [
                 {
                     "key": "AtWork",
-                    "op": 0
+                    "op": true
                 }
             ],
             "utilityBelief": "",
@@ -34,13 +34,13 @@
             "preconditions": [
                 {
                     "key": "HasGatherTarget",
-                    "op": 0
+                    "op": true
                 }
             ],
             "effects": [
                 {
                     "key": "AtGatherArea",
-                    "op": 0
+                    "op": true
                 }
             ],
             "utilityBelief": "",
@@ -53,13 +53,13 @@
             "preconditions": [
                 {
                     "key": "HasMoney",
-                    "op": 0
+                    "op": true
                 }
             ],
             "effects": [
                 {
                     "key": "HasFood",
-                    "op": 0
+                    "op": true
                 }
             ],
             "utilityBelief": "",
@@ -74,13 +74,13 @@
             "preconditions": [
                 {
                     "key": "AtWork",
-                    "op": 0
+                    "op": true
                 }
             ],
             "effects": [
                 {
                     "key": "HasMoney",
-                    "op": 0
+                    "op": true
                 }
             ],
             "utilityBelief": "",
@@ -95,13 +95,13 @@
             "preconditions": [
                 {
                     "key": "HasFood",
-                    "op": 0
+                    "op": true
                 }
             ],
             "effects": [
                 {
                     "key": "Hungry",
-                    "op": 1
+                    "op": false
                 }
             ],
             "utilityBelief": "",

@@ -15,16 +15,11 @@ namespace BEN {
 	}
 	[Serializable]
 	public class Action {
-		public enum Effect {
-			TRUE,
-			FALSE,
-			PLUS,
-			MINUS
-		}
 
-		public OrderedMap<Effect> environmentalPreconditions;
-		public OrderedMap<Effect> preconditions;
-		public OrderedMap<Effect> effects;
+
+		public OrderedMap<bool> environmentalPreconditions;
+		public OrderedMap<bool> preconditions;
+		public OrderedMap<bool> effects;
 		public string name;
 		public int[] connections;
 		public int actionID;
@@ -34,15 +29,15 @@ namespace BEN {
 		protected Func<int, State> action;
 
 		public Action() {
-			this.preconditions = new OrderedMap<Effect>();
-			this.environmentalPreconditions = new OrderedMap<Effect>();
+			this.preconditions = new OrderedMap<bool>();
+			this.environmentalPreconditions = new OrderedMap<bool>();
 		}
 
-		public Action(int preconditionid, Effect precondition, int effectid, Effect effect) {
-			this.preconditions = new OrderedMap<Effect>();
-			this.environmentalPreconditions = new OrderedMap<Effect>();
+		public Action(int preconditionid, bool precondition, int effectid, bool effect) {
+			this.preconditions = new OrderedMap<bool>();
+			this.environmentalPreconditions = new OrderedMap<bool>();
 			this.preconditions.Insert(preconditionid, precondition);
-			this.effects = new OrderedMap<Effect>();
+			this.effects = new OrderedMap<bool>();
 			this.effects.Insert(effectid, effect);
 		}
 
@@ -60,7 +55,7 @@ namespace BEN {
 			if (environmentalPreconditions.length > 0) {
 				while (!environmentalPreconditions.CompletedList()) {
 					int ID = environmentalPreconditions.GetCurrentKey();
-					Effect PreconditionItem = environmentalPreconditions.GetCurrentValue();
+					bool PreconditionItem = environmentalPreconditions.GetCurrentValue();
 					object state = WorldState.worldstate.Cycle(ID);
 					if (state == null || !Compare(state, PreconditionItem)) {
 						environmentalPreconditions.ResetPointer();
@@ -80,7 +75,7 @@ namespace BEN {
 			if (preconditions.length > 0) {
 				while (!preconditions.CompletedList()) {
 					int ID = preconditions.GetCurrentKey();
-					Effect PreconditionItem = preconditions.GetCurrentValue();
+					bool PreconditionItem = preconditions.GetCurrentValue();
 					Belief belief = agent.beliefs.Cycle(ID);
 					if (belief == null || !Compare(belief.value, PreconditionItem)) {
 						preconditions.ResetPointer();
@@ -97,10 +92,8 @@ namespace BEN {
 			return true;
 		}
 
-		private static bool Compare(object check, Effect op) {
-			if (op == Effect.TRUE && (bool)check) return true;
-			if (op == Effect.FALSE && !(bool)check) return true;
-			else return false;
+		private static bool Compare(object check, bool op) {
+			return (bool)check == op;
 		}
 	}
 
@@ -193,23 +186,23 @@ namespace BEN {
 			// Translate environmentalpreconditions
 			for (int i = 0; i < fileAction.environmentalPreconditions.Length; i++) {
 				int preconditionID = SymbolTable.GetID(fileAction.environmentalPreconditions[i].key);
-				Action.Effect preconditionEffect = (Action.Effect)fileAction.environmentalPreconditions[i].op;
+				bool preconditionEffect = (bool)fileAction.environmentalPreconditions[i].op;
 				newAction.environmentalPreconditions.Insert(preconditionID, preconditionEffect);
 			}
 
 			// Translate preconditions
 			for (int i = 0; i < fileAction.preconditions.Length; i++) {
 				int preconditionID = SymbolTable.GetID(fileAction.preconditions[i].key);
-				Action.Effect preconditionEffect = (Action.Effect)fileAction.preconditions[i].op;
+				bool preconditionEffect = (bool)fileAction.preconditions[i].op;
 				newAction.preconditions.Insert(preconditionID, preconditionEffect);
 			}
 
 			// Translate effects
 			for (int i = 0; i < fileAction.effects.Length; i++) {
 				int effectID = SymbolTable.GetID(fileAction.effects[i].key);
-				Action.Effect effectEffect = (Action.Effect)fileAction.effects[i].op;
+				bool effectEffect = (bool)fileAction.effects[i].op;
 				if (newAction.effects == null) {
-					newAction.effects = new OrderedMap<Action.Effect>();
+					newAction.effects = new OrderedMap<bool>();
 				}
 				newAction.effects.Insert(effectID, effectEffect);
 			}
@@ -225,15 +218,17 @@ namespace BEN {
 			instance = null;
 		}
 
-		public static void MakePlan(int id, Action.Effect effect, Agent agent) {
+		public static void MakePlan(int id, bool effect, Agent agent) {
 			int[] actionIndex = instance.GOAP(id, effect, agent);
-			foreach (int i in actionIndex)
-				agent.actionStack.AddAction(i);
+			if (actionIndex != null) {
+				foreach (int i in actionIndex)
+					agent.actionStack.AddAction(i);
+			}
 		}
 
 		//possible optimization: create a queue of requests, run a request every frame, no more, 
 		//use a single static container to avoid realocating memory every query
-		private int[] GOAP(int id, Action.Effect effect, Agent agent) {
+		private int[] GOAP(int id, bool effect, Agent agent) {
 			int[] desires = instance.desireDictionary.GetReferences(id, effect).ToArray();
 			Queue<int> actionQueue = new Queue<int>();
 			HashSet<int> visited = new HashSet<int>();
@@ -283,13 +278,13 @@ namespace BEN {
 
 	[Serializable]
 	public class ActionReferences {
-		private Dictionary<(int, Action.Effect), List<int>> references;
+		private Dictionary<(int, bool), List<int>> references;
 
 		public ActionReferences() {
-			references = new Dictionary<(int, Action.Effect), List<int>>();
+			references = new Dictionary<(int, bool), List<int>>();
 		}
 
-		public void AddReference(int worldStateID, Action.Effect effect, int actionID) {
+		public void AddReference(int worldStateID, bool effect, int actionID) {
 			var key = (worldStateID, effect);
 			if (!references.ContainsKey(key)) {
 				references[key] = new List<int>();
@@ -297,13 +292,13 @@ namespace BEN {
 			references[key].Add(actionID);
 		}
 
-		public void RemoveReference((int, Action.Effect) key, int actionID) {
+		public void RemoveReference((int, bool) key, int actionID) {
 			if (references.ContainsKey(key)) {
 				references[key].Remove(actionID);
 			}
 		}
 
-		public List<int> GetReferences(int worldStateID, Action.Effect effect) {
+		public List<int> GetReferences(int worldStateID, bool effect) {
 			var key = (worldStateID, effect);
 			return references.ContainsKey(key) ? references[key] : new List<int>();
 		}
