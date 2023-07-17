@@ -8,7 +8,7 @@ using System.Reflection;
 using Newtonsoft.Json;
 using ST = Utils.SymbolTable;
 using GR = GlobalRegistry;
-using BEN;
+using GOBEN;
 
 
 public class NPC : MonoBehaviour {
@@ -57,6 +57,10 @@ public class NPC : MonoBehaviour {
 		//		mover.GetPath((string)agent.GetBelief(Address.Home).value);
 		//	}
 		//}
+		if (Input.GetKeyDown(KeyCode.P)) {
+			agent.AddDesire(new Desire("AtWork"));
+		}
+		agent.Update(Time.deltaTime);
 		if (!checkingAgents) {
 			checkingAgents = true;
 			StartCoroutine(DelayedFunction(5 + RandomFrames, () => {
@@ -117,7 +121,6 @@ public class NPC : MonoBehaviour {
 	}
 
 	public State WalkTo(int id = 0) {
-		return State.Success;
 		int node;
 		if(id == ST.GetID("Home")) {
 			node = ST.GetID(homeAddress);
@@ -135,7 +138,7 @@ public class NPC : MonoBehaviour {
 		return State.Running;
 	}
 
-	public void Request(string fact, State state, string utility, params (int,State)[] preconditions) {
+	public void Request(string fact, bool state, string utility, params (int,bool)[] preconditions) {
 		int key = ST.GetID(fact);
 		if (!agent.desires.ContainsKey(key)) {
 			agent.desires.Insert(key, new Desire(fact,state,ST.GetID(utility),preconditions));
@@ -200,7 +203,7 @@ public class NPC : MonoBehaviour {
 		if (File.Exists(agentDataPath)) {
 			BinaryFormatter formatter = new BinaryFormatter();
 			FileStream stream = new FileStream(agentDataPath, FileMode.Open);
-			agent = formatter.Deserialize(stream) as BEN.Agent;
+			agent = formatter.Deserialize(stream) as GOBEN.Agent; //203
 			stream.Close();
 		}
 		agent.LoadNewAgent();

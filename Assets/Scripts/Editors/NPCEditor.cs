@@ -1,7 +1,7 @@
 #if UNITY_EDITOR
 using UnityEngine;
 using UnityEditor;
-using BEN;
+using GOBEN;
 
 
 [CustomEditor(typeof(NPC))]

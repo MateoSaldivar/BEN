@@ -4,7 +4,7 @@ using UnityEngine;
 using UnityEditor;
 using System.IO;
 using System.Collections.Generic;
-using BEN;
+using GOBEN;
 using UnityEditor.UI;
 using System;
 
@@ -104,11 +104,13 @@ public class NPCPrefabCreator : EditorWindow {
 
 		showPersonality = EditorGUILayout.Foldout(showPersonality, "Agent data");
 		if (showPersonality) {
-			movementSpeed = EditorGUILayout.FloatField("movement speed: ",movementSpeed);
+			movementSpeed = EditorGUILayout.FloatField("Agent movement speed: ",movementSpeed);
 			EditorGUILayout.Space();
+			EditorGUILayout.LabelField("Character addresses");
 			Home = EditorGUILayout.TextField("Home Address: ",Home);
 			WorkPlace = EditorGUILayout.TextField("Work Address: ", WorkPlace);
 			EditorGUILayout.Space();
+			EditorGUILayout.LabelField("Personality Values");
 			openness = EditorGUILayout.Slider("Openness",openness,0,1);
 			consciousness = EditorGUILayout.Slider("Consciousness", consciousness,0,1);
 			extroversion = EditorGUILayout.Slider("Extroversion",extroversion,0,1);

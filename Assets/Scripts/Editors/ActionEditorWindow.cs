@@ -1,5 +1,5 @@
 #if UNITY_EDITOR
-//using BEN;
+using GOBEN;
 
 using Newtonsoft.Json;
 using System;
@@ -13,15 +13,15 @@ using UnityEngine;
 namespace ActionEditor {
     public class ActionEditorWindow : EditorWindow {
 
-        List<FileAction> fileActions = new List<FileAction>();
+        public List<FileAction> fileActions = new List<FileAction>();
         List<bool> ActionExpanded = new List<bool>();
         Vector2 scrollPos = Vector2.zero;
-
+        
 
         // Editor window initialization
-        [MenuItem("BEN/File Actions Editor")]
+        [MenuItem("BEN/Actions Editor")]
         public static void ShowWindow() {
-            EditorWindow.GetWindow(typeof(ActionEditorWindow));
+            GetWindow(typeof(ActionEditorWindow));
         }
 
         void OnEnable() {
@@ -296,7 +296,13 @@ namespace ActionEditor {
                 // Add a new action
                 AddNewAction();
             }
-            
+
+            GUILayout.Space(5); // Add space between buttons
+
+            if (GUILayout.Button("Norm Editor", buttonStyle, GUILayout.Width(120))) {
+                OpenNormEditorWindow();
+            }
+
             GUILayout.FlexibleSpace();
 
             if (GUILayout.Button("Save", buttonStyle, GUILayout.Width(50))) {
@@ -311,6 +317,13 @@ namespace ActionEditor {
 
             GUILayout.EndVertical();
         }
+
+        void OpenNormEditorWindow() {
+            // Create and show the Norm editor window
+            NormEditorWindow normEditorWindow = EditorWindow.GetWindow<NormEditorWindow>();
+            normEditorWindow.Show();
+        }
+
 
         void SaveJson() {
             CheckConnections();
@@ -374,9 +387,197 @@ namespace ActionEditor {
 
     }
 
-    
 
-    
+    public class NormEditorWindow : EditorWindow {
+        private List<Norm> norms = new List<Norm>();
+        private int selectedNormIndex = 0;
+
+        // Variables for creating a new norm
+        private string normName = "";
+        private string intentionId = "";
+        private string contextId = "";
+        private bool contextEnabled = false;
+        private float obedienceThreshold = 0f;
+        private float priority = 0f;
+        private int[] behaviorActions = new int[0];
+        private float violationTime = 0f;
+
+        private List<FileAction> fileActions = new List<FileAction>();
+
+       
+
+        void OnEnable() {
+            LoadFileActions();
+        }
+
+        void LoadFileActions() {
+            // Load file actions from your desired source
+            // In this example, we assume the file actions are already loaded in the ActionEditorWindow
+            ActionEditorWindow actionEditorWindow = EditorWindow.GetWindow<ActionEditorWindow>();
+            if (actionEditorWindow != null) {
+                fileActions = actionEditorWindow.fileActions;
+            }
+        }
+
+        void OnGUI() {
+            GUILayout.Label("Norm Editor", EditorStyles.boldLabel);
+
+            EditorGUILayout.Space();
+
+            // Dropdown menu for selecting a norm
+            EditorGUILayout.BeginHorizontal();
+            selectedNormIndex = EditorGUILayout.Popup("Select Norm", selectedNormIndex, GetNormNames().ToArray());
+
+            if (GUILayout.Button("-", GUILayout.Width(20))) {
+                RemoveNorm(selectedNormIndex);
+            }
+
+            EditorGUILayout.EndHorizontal();
+            EditorGUILayout.Space();
+
+            // Norm details
+            if (selectedNormIndex >= 0 && selectedNormIndex < norms.Count) {
+                Norm selectedNorm = norms[selectedNormIndex];
+
+                // Norm name
+                selectedNorm.name = EditorGUILayout.TextField("Norm Name", selectedNorm.name);
+
+                // Intention ID
+                selectedNorm.intentionId = EditorGUILayout.TextField("Intention ID", selectedNorm.intentionId);
+
+                // Context
+                EditorGUILayout.BeginHorizontal();
+                selectedNorm.contextId = EditorGUILayout.TextField("Context",selectedNorm.contextId);
+                selectedNorm.contextEnabled = EditorGUILayout.Toggle(selectedNorm.contextEnabled);
+                EditorGUILayout.EndHorizontal();
+                // Obedience Threshold
+                selectedNorm.obedienceThreshold = EditorGUILayout.FloatField("Obedience Threshold", selectedNorm.obedienceThreshold);
+
+                // Priority
+                selectedNorm.priority = EditorGUILayout.FloatField("Priority", selectedNorm.priority);
+                selectedNorm.violationTime = EditorGUILayout.FloatField("Violation Time", selectedNorm.violationTime);
+
+                // Behavior
+                EditorGUILayout.BeginHorizontal();
+                GUILayout.Label("Behavior");
+                if (GUILayout.Button("Add Action")) {
+                    AddBehaviorAction(selectedNorm);
+                }
+                EditorGUILayout.EndHorizontal();
+                EditorGUI.indentLevel++;
+                if (selectedNormIndex >= 0 && selectedNormIndex < norms.Count) {
+                    
+
+                    EditorGUILayout.BeginVertical(GUI.skin.box);
+                    if (selectedNorm!= null && selectedNorm.behavior != null) {
+                        for (int i = 0; i < selectedNorm.behavior.Length; i++) {
+                            EditorGUILayout.BeginHorizontal();
+                            EditorGUILayout.LabelField("Action " + (i + 1), GUILayout.Width(100));
+                            selectedNorm.behavior[i] = EditorGUILayout.Popup(selectedNorm.behavior[i], GetFileActionNames());
+
+                            if (GUILayout.Button("-", GUILayout.Width(20))) {
+                                RemoveBehaviorAction(selectedNorm, i);
+                            }
+                            EditorGUILayout.EndHorizontal();
+                        }
+                    }
+                    EditorGUILayout.EndVertical();
+                }
+                EditorGUI.indentLevel--;
+            }
+
+            GUILayout.Space(10);
+
+            // Buttons for managing norms
+            EditorGUILayout.BeginHorizontal();
+            if (GUILayout.Button("Add Norm")) {
+                AddNorm();
+            }
+            if (GUILayout.Button("Save Norms")) {
+                SaveNorms();
+            }
+            EditorGUILayout.EndHorizontal();
+        }
+
+        private void RemoveNorm(int index) {
+            if (index >= 0 && index < norms.Count) {
+                norms.RemoveAt(index);
+                if (selectedNormIndex >= norms.Count) {
+                    selectedNormIndex = norms.Count - 1;
+                }
+            }
+        }
+
+        private void AddBehaviorAction(Norm norm) {
+            int length = norm.behavior != null ? norm.behavior.Length + 1 : 0;
+            int[] newBehaviorActions = new int[length];
+            if(norm.behavior != null)
+            for (int i = 0; i < norm.behavior.Length; i++) {
+                newBehaviorActions[i] = norm.behavior[i];
+            }
+
+            // Assign the first action from fileActions to the new element
+            if (fileActions.Count > 0) {
+                newBehaviorActions[newBehaviorActions.Length - 1] = 0; // Assuming the first action index is 0
+            }
+
+            norm.behavior = newBehaviorActions;
+        }
+
+        private void RemoveBehaviorAction(Norm norm, int index) {
+            // Shift the remaining elements in the array to fill the removed index
+            for (int i = index + 1; i < norm.behavior.Length; i++) {
+                norm.behavior[i - 1] = norm.behavior[i];
+            }
+
+            // Resize the array by creating a new array with one fewer element
+            Array.Resize(ref norm.behavior, norm.behavior.Length - 1);
+        }
+
+        private string[] GetFileActionNames() {
+            string[] fileActionNames = new string[fileActions.Count];
+            for (int i = 0; i < fileActions.Count; i++) {
+                fileActionNames[i] = fileActions[i].name;
+            }
+            return fileActionNames;
+        }
+
+        private void AddNorm() {
+            Norm newNorm = new Norm();
+            norms.Add(newNorm);
+            newNorm.name = "New Norm "+norms.Count;
+            selectedNormIndex = norms.Count - 1;
+        }
+
+        private void SaveNorms() {
+            // Convert norms list to JSON string
+            string json = JsonUtility.ToJson(new SerializableFileNorms(norms), true);
+
+            // Create the directory if it doesn't exist
+            string directoryPath = Application.dataPath + "/NormData";
+            if (!Directory.Exists(directoryPath)) {
+                Directory.CreateDirectory(directoryPath);
+            }
+
+            // Write JSON string to file
+            string filePath = directoryPath + "/NormFile.json";
+            File.WriteAllText(filePath, json);
+
+            UnityEngine.Debug.Log("Norms saved to " + filePath);
+        }
+
+        private string[] GetNormNames() {
+            string[] normNames = new string[norms.Count];
+            for (int i = 0; i < norms.Count; i++) {
+                normNames[i] = norms[i].name;
+            }
+            return normNames;
+        }
+    }
+
+
+
+
 
 }
 

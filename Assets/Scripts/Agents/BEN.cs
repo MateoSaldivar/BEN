@@ -1,16 +1,22 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using System.IO;
-using Newtonsoft.Json;
 using Utils;
+//todo
+//finish norms
+//make norm editor
+//load norms
+//design intentions 
+//laws and obligations tresholds
+//Add reaction module
 
-
-namespace BEN {
+namespace GOBEN {
 
 	[Serializable]
 	public class Agent {
+		public struct agentPerceived {
+			public Agent agent;
+			public float timer;
+		}
 
 		#region Variables
 		public Dictionary<int, Func<int, State>> actions;
@@ -19,9 +25,16 @@ namespace BEN {
 		public OrderedMap<Desire> desires;
 		public OrderedMap<Obligation> obligations;
 		public Dictionary<int, Emotion> currentEmotions;
+		public Dictionary<Agent, Relationship> relationships;
+		public float emotionalObedienceMultiplier = 1;
 		public Intention currentIntention;
 		private Personality personality;
 		public ActionStack actionStack;
+		public bool followingObligations;
+
+		public List<agentPerceived> perceivedAgents;
+
+		float intentionCooldownTimer = 0f;
 		#endregion
 
 		public Agent() {
@@ -30,6 +43,13 @@ namespace BEN {
 			desires = new OrderedMap<Desire>(30);
 			currentIntention = null;
 			personality = null;
+
+			actions = new Dictionary<int, Func<int, State>>();
+			perceivedAgents = new List<agentPerceived>();
+			currentEmotions = new Dictionary<int, Emotion>();
+			relationships = new Dictionary<Agent, Relationship>();
+			actionStack = new ActionStack(this);
+			followingObligations = false;
 		}
 		public void InitializeActions(string jsonpath) {
 			actions = new Dictionary<int, Func<int, State>>();
@@ -51,7 +71,33 @@ namespace BEN {
 			desires = new OrderedMap<Desire>(30);
 			currentIntention = null;
 		}
-		public void UpdateBeliefs(float deltaTime) {
+
+		public void Update(float deltaTime) {
+			UpdateBeliefs(deltaTime);
+			UpdatePerceivedAgents(deltaTime);
+			UpdateEmotions(deltaTime);
+
+			MakeDecision(deltaTime);
+			actionStack.Tick();
+		}
+
+		private void UpdateEmotions(float deltaTime) {
+			List<int> emotionsToRemove = new List<int>();
+			if(currentEmotions == null) currentEmotions = new Dictionary<int, Emotion> ();
+			foreach (var emotion in currentEmotions) {
+				emotion.Value.Degrade(deltaTime);
+				if (emotion.Value.intensity <= 0) {
+					emotionsToRemove.Add(emotion.Key);
+				}
+			}
+
+			foreach (var emotionKey in emotionsToRemove) {
+				currentEmotions.Remove(emotionKey);
+			}
+		}
+
+		private void UpdateBeliefs(float deltaTime) {
+			if(decomposingBeliefs == null)decomposingBeliefs = new List<Belief> ();
 			for (int i = decomposingBeliefs.Count - 1; i >= 0; i--) {
 				Belief belief = decomposingBeliefs[i];
 				belief.Degrade(deltaTime);
@@ -60,54 +106,179 @@ namespace BEN {
 				}
 			}
 		}
-		public void CheckBeliefs() {
-			//beliefsChanged = true;
-		}
 
-		public void MakeDecision() {
-			if (!KeepCurrentIntention()) {
-
+		private void UpdatePerceivedAgents(float deltaTime) {
+			if(perceivedAgents == null) perceivedAgents = new List<agentPerceived> { };
+			for (int i = perceivedAgents.Count - 1; i >= 0; i--) {
+				agentPerceived perceivedAgent = perceivedAgents[i];
+				perceivedAgent.timer -= deltaTime;
+				if (perceivedAgent.timer <= 0) {
+					perceivedAgents.RemoveAt(i);
+				}
 			}
 		}
 
-		bool KeepCurrentIntention() {
-			if(currentIntention == null)return false;
-
-			return true;
+		public void PerceiveAgent(Agent agent) {
+			// Check if the agent is already perceived
+			int index = GetPerceivedAgentIndex(agent);
+			if (index >= 0) {
+				// Update the timer to 60 seconds
+				agentPerceived perceivedAgent = perceivedAgents[index];
+				perceivedAgent.timer = 60f;
+				perceivedAgents[index] = perceivedAgent;
+			} else {
+				// Add the agent to the perceivedAgents list with a timer value of 60 seconds
+				perceivedAgents.Add(new agentPerceived { agent = agent, timer = 60f });
+			}
 		}
+
+		private int GetPerceivedAgentIndex(Agent agent) {
+			for (int i = 0; i < perceivedAgents.Count; i++) {
+				if (perceivedAgents[i].agent == agent) {
+					return i;
+				}
+			}
+			return -1; // Agent not found
+		}
+
+		public void MakeDecision(float deltaTime) {
+			if (KeepCurrentIntention(deltaTime)) {
+				if (actionStack.CanDoAction()) {
+					return;
+				} else {
+					SetNewPlan();
+				}
+			} else {
+				MakeIntention();
+				SetNewPlan();
+			}
+		}
+
+		void SetNewPlan() {
+			if (currentIntention == null) return;
+
+			Norm norm = ActionGraph.instance.GetNormPlan(currentIntention.ID, currentObedience());
+			if (norm.behavior != null) {
+				foreach (int actionId in norm.behavior) {
+					actionStack.AddAction(actionId);
+				}
+			} else {
+				(int, bool) state = currentIntention.desiredState;
+				ActionGraph.MakePlan(state.Item1, state.Item2, this);
+			}
+		}
+
+		bool KeepCurrentIntention(float deltaTime) {
+			if (currentIntention == null) {
+				intentionCooldownTimer = personality.consciousness * 80f;
+				return false;
+			}
+
+			if (intentionCooldownTimer > 0f) {
+				intentionCooldownTimer -= deltaTime;  
+				return true;  
+			}
+
+			Random random = new Random();
+			double randomValue = random.NextDouble();
+			intentionCooldownTimer = personality.consciousness * 80f;
+
+			return randomValue <= personality.probabilityOfKeepingIntention;
+		}
+
+		float currentNormTreshold = 1;
 
 		public void MakeIntention() {
-			Intention tmp = null;
-			if (ObeyObligations()) {
-				tmp = ChooseIntention(obligations);
-			} else {
-
+			if (obligations == null) obligations = new OrderedMap<Obligation>();
+			if (desires == null) desires = new OrderedMap<Desire>();
+			(Motivation, float) bestObligation = ChooseIntention(obligations);
+			(Motivation, float) bestDesire = ChooseIntention(desires);
+			followingObligations = ObeyObligations(currentNormTreshold);
+			if (followingObligations && bestObligation.Item1 is Obligation bestObligationIntention) {
+				currentIntention = bestObligationIntention.ToIntention(this);
+			} else if (bestDesire.Item1 is Desire bestDesireIntention) {
+				currentIntention = bestDesireIntention.ToIntention(this);
 			}
 		}
 
-		public bool ObeyObligations() {
-			return false;
+		float DesireExpectedUtility = 1f;
+		public float CalculateEmotionalObedienceMultiplier() {
+			float sumObedienceModifiers = 0;
+			int count = 0;
+
+			foreach (var emotion in currentEmotions.Values) {
+				sumObedienceModifiers += emotion.obedienceModifier;
+				count++;
+			}
+
+			return count > 0 ? sumObedienceModifiers / count : 1; // Return the average or 1 if no emotions present
 		}
 
-		public Intention ChooseIntention<T>(OrderedMap<T> container) where T : Motivation {
+		public float CalculateSocialObedienceMultiplier() {
+			float perceivedAgentsCount = perceivedAgents.Count;
+			float relationshipMultiplier = 1;
 
+			foreach (var perceivedAgent in perceivedAgents) {
+				Agent agent = perceivedAgent.agent;
+				if (relationships.ContainsKey(agent)) {
+					Relationship relationship = relationships[agent];
+
+					// Check if the other agent is following obligations
+					if (agent.followingObligations) {
+						relationshipMultiplier += relationship.liking;
+					} else {
+						relationshipMultiplier -= relationship.liking;
+					}
+				} else {
+					// Agent is not known, apply a light effect on obedience multiplier
+					relationshipMultiplier += 0.05f;
+				}
+			}
+
+			float perceptionMultiplier = Math.Clamp(1 - perceivedAgentsCount * 0.1f, 0.1f, 1);
+
+			return perceptionMultiplier * relationshipMultiplier;
+		}
+
+		public bool ObeyObligations(float obedienceThreshold) {
+			
+
+			return currentObedience() - DesireExpectedUtility > obedienceThreshold;
+		}
+
+		public float currentObedience() {
+			emotionalObedienceMultiplier = CalculateEmotionalObedienceMultiplier();
+			float socialObedienceMultiplier = CalculateSocialObedienceMultiplier();
+
+			float obedienceValue = personality.obedience * emotionalObedienceMultiplier * socialObedienceMultiplier;
+
+			Random random = new Random();
+			double randomFactor = random.NextDouble() * 0.2 + 0.9; // Adjust the range and value based on the impact of randomness
+
+			obedienceValue *= (float)randomFactor;
+			return obedienceValue;
+		}
+
+		public (Motivation, float) ChooseIntention<T>(OrderedMap<T> container) where T : Motivation {
 			float totalUtility = 0;
-			for(int i = 0; i < container.length; i++) {
+			for (int i = 0; i < container.length; i++) {
 				float util = beliefs.ContainsKey(container[i].utilityID) ? (float)beliefs[container[i].utilityID].value : 0;
 				totalUtility += util;
 			}
 
-			float randomValue = UnityEngine.Random.Range(0f, totalUtility);
+			Random random = new Random();
+			float randomValue = (float)random.NextDouble() * totalUtility;
 
 			for (int i = 0; i < container.length; i++) {
 				float util = beliefs.ContainsKey(container[i].utilityID) ? (float)beliefs[container[i].utilityID].value : 0;
 				totalUtility -= util;
 
 				if (randomValue <= 0 && container[i].CheckEnvironmentalPreconditions()) {
-					return Motivation.TranslateToIntent(container[i]);
+					return (Motivation.TranslateToIntent(container[i]), util);
 				}
 			}
-			return null;
+
+			return (null, 0f);
 		}
 
 		public void AddDesire(Desire desire) {
@@ -160,6 +331,7 @@ namespace BEN {
 		}
 	}
 
+	#region Cognitive Engine
 	[Serializable]
 	public class MentalState {
 		public string name;
@@ -224,28 +396,27 @@ namespace BEN {
 	}
 	[Serializable]
 	public class Motivation : MentalState {
-		public (int, State) desiredState;
-		public List<(int,State)> preconditions;
-		public List<(int,State)> environmentalPreconditions;
+		public (int, bool) desiredState;
+		public List<(int, bool)> preconditions;
+		public List<(int, bool)> environmentalPreconditions;
 		public int utilityID;
 		public bool IsAchievable(Agent agent) {
 			return true;
 		}
-		public void AddPrecondition((int,State) precondition) {
+		public void AddPrecondition((int, bool) precondition) {
 			preconditions.Add(precondition);
 		}
 		public Intention ToIntention(Agent agent) {
-			//if (!agent.planLibrary.CheckPreconditions(preconditions, agent.beliefs)) {
-			//	return null;
-			//}
 			Intention intention = new Intention(name, priority);
-			intention.preconditions = new List<(int, State)>(preconditions);
-
+			intention.desiredState = desiredState;
+			intention.preconditions = new List<(int, bool)>(preconditions);
+			intention.environmentalPreconditions = new List<(int, bool)>(environmentalPreconditions);
+			intention.utilityID = utilityID;
 			return intention;
 		}
 
 		public virtual bool CheckEnvironmentalPreconditions() {
-			
+
 			return true;
 		}
 
@@ -265,13 +436,13 @@ namespace BEN {
 	public class Desire : Motivation {
 		public Desire(string name) {
 			this.name = name;
-			preconditions = new List<(int, State)>();
+			preconditions = new List<(int, bool)>();
 		}
-		public Desire(string name, State state ,int utilityID = 0, params (int,State)[] preconditions) {
+		public Desire(string name, bool state, int utilityID = 0, params (int, bool)[] preconditions) {
 			this.name = name;
-			this.desiredState = (SymbolTable.GetID(name),state);
+			this.desiredState = (SymbolTable.GetID(name), state);
 			this.utilityID = utilityID;
-			this.preconditions = new List<(int, State)>(preconditions);
+			this.preconditions = new List<(int, bool)>(preconditions);
 		}
 	}
 	[Serializable]
@@ -280,7 +451,7 @@ namespace BEN {
 			this.name = name;
 			this.priority = priority;
 		}
-		public Intention(string name, float priority, List<(int,State)> preconditions) {
+		public Intention(string name, float priority, List<(int, bool)> preconditions) {
 			this.name = name;
 			this.priority = priority;
 			this.preconditions = preconditions;
@@ -292,12 +463,14 @@ namespace BEN {
 			this.name = name;
 			this.priority = priority;
 		}
-		public Obligation(string name, float priority, List<(int,State)> preconditions) {
+		public Obligation(string name, float priority, List<(int, bool)> preconditions) {
 			this.name = name;
 			this.priority = priority;
 			this.preconditions = preconditions;
 		}
 	}
+
+	#endregion
 
 	[Serializable]
 	public class Personality {
@@ -344,6 +517,7 @@ namespace BEN {
 		public Agent agentResponsable;
 		public float intensity;
 		public float decay;
+		public float obedienceModifier = 1;
 
 		public Emotion(string p_name, string p_predicate, Agent p_agentResponsable, float p_intensity, float p_decay) {
 			name = p_name;
@@ -353,13 +527,21 @@ namespace BEN {
 			decay = p_decay;
 		}
 
-		public void Degrade() {
+		public void Degrade(float deltaTime) {
 			if (intensity > 0) {
-				intensity -= UnityEngine.Time.deltaTime * 0.01f;
+				intensity -= deltaTime * 0.01f;
 			}
 		}
+	}
 
-
+	[Serializable]
+	public class Relationship {
+		public Agent otherAgent;
+		public float liking;
+		public float degreeOfPower;
+		public float solidarity;
+		public float familiarity;
+		public float trust;
 	}
 
 

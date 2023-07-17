@@ -3,7 +3,7 @@ using UnityEditor;
 using System.Collections.Generic;
 using Utils;
 using ST = Utils.SymbolTable;
-using BEN;
+using GOBEN;
 /*
 * ZiroDev Copyright(c)
 *

@@ -1,5 +1,5 @@
 using UnityEngine;
-using BEN;
+using GOBEN;
 using UnityEngine.SceneManagement;
 /*
 * ZiroDev Copyright(c)

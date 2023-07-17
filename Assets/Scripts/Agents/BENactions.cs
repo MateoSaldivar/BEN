@@ -6,7 +6,7 @@ using System.IO;
 using Newtonsoft.Json;
 using Utils;
 
-namespace BEN {
+namespace GOBEN {
 	public enum State {
 		Inactive,
 		Running,
@@ -41,9 +41,17 @@ namespace BEN {
 			this.effects.Insert(effectid, effect);
 		}
 
-		public State Tick(int parameter_id = 0) {
+		public virtual State Tick(int parameter_id = 0) {
 			return action.Invoke(parameter_id);
 		}
+
+		public virtual State Tick(Agent agent, int parameter_id = 0) {
+			return action.Invoke(parameter_id);
+		}
+		public virtual State Tick(Agent agent, float deltaTime, int parameter_id = 0) {
+			return action.Invoke(parameter_id);
+		}
+
 		public virtual bool CheckPreconditions(Agent agent) {
 			if (CheckEnvironmentalPreconditions()) {
 				return CheckLocalPreconditions(agent);
@@ -97,14 +105,375 @@ namespace BEN {
 		}
 	}
 
+	[Serializable]
+	public class CompositeAction : Action {
+		public List<Action> subActions;
 
+		public CompositeAction() {
+			subActions = new List<Action>();
+		}
+
+		public CompositeAction(int preconditionid, bool precondition, int effectid, bool effect)
+			: base(preconditionid, precondition, effectid, effect) {
+			subActions = new List<Action>();
+		}
+
+		public override bool CheckPreconditions(Agent agent) {
+			if (CheckEnvironmentalPreconditions()) {
+				return CheckLocalPreconditions(agent) && CheckSubActionsPreconditions(agent);
+			}
+			return false;
+		}
+
+		private bool CheckSubActionsPreconditions(Agent agent) {
+			foreach (Action subAction in subActions) {
+				if (!subAction.CheckPreconditions(agent)) {
+					return false;
+				}
+			}
+			return true;
+		}
+
+		public override State Tick(int parameter_id = 0) {
+			State result = base.Tick(parameter_id);
+			if (result != State.Failed) {
+				ExecuteSubActions(parameter_id);
+			}
+			return result;
+		}
+
+		private void ExecuteSubActions(int parameter_id) {
+			foreach (Action subAction in subActions) {
+				subAction.Tick(parameter_id);
+			}
+		}
+	}
+
+	[Serializable]
+	public class SequenceAction : CompositeAction {
+		private int currentActionIndex;
+
+		public SequenceAction() {
+			currentActionIndex = 0;
+		}
+
+		public SequenceAction(int preconditionid, bool precondition, int effectid, bool effect)
+			: base(preconditionid, precondition, effectid, effect) {
+			currentActionIndex = 0;
+		}
+
+		public override State Tick(int parameter_id = 0) {
+			if (currentActionIndex < subActions.Count) {
+				Action currentAction = subActions[currentActionIndex];
+				State result = currentAction.Tick(parameter_id);
+				if (result != State.Inactive) // Assuming State.Inactive represents a non-executable state
+				{
+					if (result == State.Success) {
+						currentActionIndex++;
+						if (currentActionIndex >= subActions.Count) {
+							return State.Success;
+						}
+					} else if (result == State.Failed) {
+						return State.Failed;
+					}
+				}
+			}
+			currentActionIndex = 0;
+			return State.Inactive;
+		}
+	}
+
+	[Serializable]
+	public class ParallelAction : CompositeAction {
+		private List<State> subActionStates;
+
+		public ParallelAction() {
+			subActionStates = new List<State>();
+		}
+
+		public ParallelAction(int preconditionid, bool precondition, int effectid, bool effect)
+			: base(preconditionid, precondition, effectid, effect) {
+			subActionStates = new List<State>();
+		}
+
+		public override bool CheckPreconditions(Agent agent) {
+			bool allPreconditionsMet = base.CheckPreconditions(agent);
+			if (allPreconditionsMet) {
+				InitializeSubActionStates();
+			}
+			return allPreconditionsMet;
+		}
+
+		private void InitializeSubActionStates() {
+			subActionStates.Clear();
+			for (int i = 0; i < subActions.Count; i++) {
+				subActionStates.Add(State.Inactive);
+			}
+		}
+
+		public override State Tick(int parameter_id = 0) {
+			bool allActionsComplete = true;
+
+			for (int i = 0; i < subActions.Count; i++) {
+				if (subActionStates[i] != State.Success && subActionStates[i] != State.Failed) {
+					Action currentAction = subActions[i];
+					State result = currentAction.Tick(parameter_id);
+					subActionStates[i] = result;
+
+					if (result != State.Success) {
+						allActionsComplete = false;
+					}
+				}
+			}
+
+			if (allActionsComplete) {
+				return State.Success;
+			}
+
+			return State.Running;
+		}
+	}
+
+	[Serializable]
+	public class FuzzySelector : CompositeAction {
+		public override State Tick(Agent agent, int parameter_id = 0) {
+			Action selectedAction = null;
+			float highestUtility = int.MinValue;
+
+			foreach (Action subAction in subActions) {
+				if (subAction.CheckPreconditions(agent)) {
+					float utility = CalculateUtility(agent, subAction);
+					if (utility > highestUtility) {
+						highestUtility = utility;
+						selectedAction = subAction;
+					}
+				}
+			}
+
+			if (selectedAction != null) {
+				State result = selectedAction.Tick(parameter_id);
+				return result != State.Inactive ? result : State.Failed;
+			}
+
+			return State.Failed;
+		}
+
+		private float CalculateUtility(Agent agent, Action action) {
+			return (float)agent.beliefs[action.utilityBelief].value;
+		}
+	}
+
+	[Serializable]
+	public class Selector : CompositeAction {
+		public override State Tick(Agent agent, int parameter_id = 0) {
+			foreach (Action subAction in subActions) {
+				if (subAction.CheckPreconditions(agent)) {
+					State result = subAction.Tick(parameter_id);
+					if (result == State.Failed) {
+						// Try the next action if the current one failed
+						continue;
+					} else {
+						return result;
+					}
+				}
+			}
+			return State.Failed;
+		}
+	}
+
+	[Serializable]
+	public class SequenceRepeater : CompositeAction {
+		private int repeatCount;
+		private int currentCount;
+
+		public SequenceRepeater(int count) {
+			repeatCount = count;
+			currentCount = 0;
+		}
+
+		public override State Tick(Agent agent, int parameter_id = 0) {
+			if (currentCount < repeatCount) {
+				Action currentAction = subActions[currentCount];
+				State result = currentAction.Tick(parameter_id);
+				if (result == State.Success) {
+					currentCount++;
+					if (currentCount >= subActions.Count) {
+						currentCount = 0;
+						return State.Success;
+					}
+				} else if (result == State.Failed) {
+					currentCount = 0;
+					return State.Failed;
+				}
+			} else {
+				currentCount = 0;
+				return State.Success;
+			}
+
+			return State.Running;
+		}
+	}
+
+	[Serializable]
+	public class ParallelRepeater : CompositeAction {
+		private float duration;
+		private float elapsedTime;
+
+		public ParallelRepeater(float duration) {
+			this.duration = duration;
+			elapsedTime = 0f;
+		}
+
+		public override State Tick(Agent agent, float deltaTime, int parameter_id = 0) {
+			if (elapsedTime < duration) {
+				elapsedTime += deltaTime;
+
+				foreach (Action subAction in subActions) {
+					if (subAction.CheckPreconditions(agent)) {
+						State result = subAction.Tick(parameter_id);
+						if (result == State.Success) {
+							elapsedTime = 0f;
+							return State.Success;
+						}
+					}
+				}
+
+				return State.Running;
+			} else {
+				elapsedTime = 0f;
+				return State.Success;
+			}
+		}
+	}
+
+	[Serializable]
+	public class ParallelSequence : CompositeAction {
+		public override State Tick(Agent agent, int parameter_id = 0) {
+			bool allActionsComplete = true;
+
+			foreach (Action subAction in subActions) {
+				if (subAction.CheckPreconditions(agent)) {
+					State result = subAction.Tick(parameter_id);
+					if (result != State.Success) {
+						allActionsComplete = false;
+					}
+				}
+			}
+
+			if (allActionsComplete) {
+				return State.Success;
+			}
+
+			return State.Running;
+		}
+	}
+
+	[Serializable]
+	public class FallbackSelector : CompositeAction {
+		public override State Tick(Agent agent, int parameter_id = 0) {
+			foreach (Action subAction in subActions) {
+				if (subAction.CheckPreconditions(agent)) {
+					State result = subAction.Tick(parameter_id);
+					return result;
+				}
+			}
+
+			return State.Failed;
+		}
+	}
+
+	[Serializable]
+	public class TimeLimitedSelector : CompositeAction {
+		private float timeLimit;
+		private float elapsedTime;
+
+		public TimeLimitedSelector(float limit) {
+			timeLimit = limit;
+			elapsedTime = 0f;
+		}
+
+		public override State Tick(Agent agent, float deltaTime, int parameter_id = 0) {
+			if (elapsedTime < timeLimit) {
+				elapsedTime += deltaTime;
+
+				foreach (Action subAction in subActions) {
+					if (subAction.CheckPreconditions(agent)) {
+						State result = subAction.Tick(parameter_id);
+						return result;
+
+					}
+				}
+
+				return State.Running;
+			} else {
+				elapsedTime = 0f;
+				return State.Failed;
+			}
+		}
+	}
+
+	[Serializable]
+	public class RandomSelector : CompositeAction {
+		private Random random;
+
+		public RandomSelector() {
+			random = new Random();
+		}
+
+		public override State Tick(Agent agent, int parameter_id = 0) {
+			List<Action> availableActions = subActions.FindAll(subAction => subAction.CheckPreconditions(agent));
+			if (availableActions.Count > 0) {
+				int randomIndex = random.Next(0, availableActions.Count);
+				Action selectedAction = availableActions[randomIndex];
+				return selectedAction.Tick(parameter_id);
+			}
+
+			return State.Failed;
+		}
+	}
+
+	[Serializable]
+	public class Norm {
+		public string name;
+		public string intentionId;
+		public string contextId;
+		public bool contextEnabled;
+		public float obedienceThreshold;
+		public float priority;
+		public int[] behavior;
+		public float violationTime;
+
+		public Norm() {
+			// Default constructor
+		}
+
+		public Norm(string name, string intentionId, string contextId, bool contextEnabled, float obedienceThreshold, float priority, int[] behavior, float violationTime) {
+			this.name = name;
+			this.intentionId = intentionId;
+			this.contextId = contextId;
+			this.contextEnabled = contextEnabled;
+			this.obedienceThreshold = obedienceThreshold;
+			this.priority = priority;
+			this.behavior = behavior;
+			this.violationTime = violationTime;
+		}
+	}
+
+	[Serializable]
+	public class SerializableFileNorms {
+		public List<Norm> norms;
+
+		public SerializableFileNorms(List<Norm> norms) {
+			this.norms = norms;
+		}
+	}
 
 	[Serializable]
 	public class ActionGraph {
 		public static ActionGraph instance;
 		private Dictionary<int, Action> actions;
 		public ActionReferences desireDictionary;
-
+		public Dictionary<int, Norm> Norms;
 
 		public static int[] GetActionKeys(string jsonPath) {
 			if (instance == null) {
@@ -123,11 +492,13 @@ namespace BEN {
 
 		public ActionGraph(Dictionary<int, Action> actions) {
 			this.actions = actions;
+			Norms = new Dictionary<int, Norm>();
 		}
 
 
 		public ActionGraph() {
-			this.actions = new Dictionary<int, Action>();
+			actions = new Dictionary<int, Action>();
+			Norms = new Dictionary<int, Norm>();
 		}
 
 
@@ -274,6 +645,15 @@ namespace BEN {
 			return instance.actions[id];
 		}
 
+
+		public Norm GetNormPlan(int intentionId, float obedience) {
+			if (Norms.TryGetValue(intentionId, out Norm norm)) {
+				if (obedience >= norm.obedienceThreshold) {
+					return norm;
+				}
+			}
+			return null;
+		}
 	}
 
 	[Serializable]
@@ -303,14 +683,15 @@ namespace BEN {
 			return references.ContainsKey(key) ? references[key] : new List<int>();
 		}
 
-		
+
 	}
 
+	[Serializable]
 	public class FileActionWrapper {
 		public FileAction[] actions;
 	}
 
-
+	[Serializable]
 	public class ActionStack {
 		private Stack<int> actionIds;
 		private Agent agent;
@@ -324,6 +705,19 @@ namespace BEN {
 		public void AddAction(int actionId) {
 			actionIds.Push(actionId);
 		}
+		public bool CanDoAction() {
+			if (actionIds.Count == 0) {
+				return false;
+			}
+
+			int currentActionId = actionIds.Peek();
+			Action currentAction = ActionGraph.instance.GetAction(currentActionId);
+			if (!currentAction.CheckPreconditions(agent)) {
+				return false;
+			}
+
+			return true;
+		}
 
 		public State Tick() {
 			if (actionIds.Count == 0) {
@@ -331,8 +725,8 @@ namespace BEN {
 			}
 
 			int currentActionId = actionIds.Peek();
-			Func<int,State> currentAction = agent.actions[currentActionId];
-			
+			Func<int, State> currentAction = agent.actions[currentActionId];
+
 			State state = currentAction.Invoke(ActionGraph.instance.GetAction(currentActionId).parameterID);
 
 			if (state == State.Success) {

@@ -226,7 +226,7 @@ Transform:
   - {fileID: 6763279005575381027}
   - {fileID: 7334267459035133974}
   m_Father: {fileID: 0}
-  m_RootOrder: 16
+  m_RootOrder: 9
   m_LocalEulerAnglesHint: {x: 0, y: 180, z: 0}
 --- !u!54 &2250537012614005336
 Rigidbody:
@@ -278,9 +278,12 @@ MonoBehaviour:
   slopeForce: 60
   slopeForceRayLength: 30
   gravity: -9.8
+  forwardVector: {x: 0, y: 0, z: 0}
   targetPosition: {x: 0, y: 0}
   LastNode: {fileID: 0}
   stopped: 0
+  walking: 0
+  targetNode: 0
 --- !u!143 &7239651141086486094
 CharacterController:
   m_ObjectHideFlags: 0
@@ -330,3 +333,9 @@ MonoBehaviour:
   money: 0
   closeAgents: []
   dynamicDisableable: {fileID: 0}
+  mover: {fileID: 0}
+  actioner: {fileID: 0}
+  vitality: {fileID: 0}
+  inventory: {fileID: 0}
+  economy: {fileID: 0}
+  social: {fileID: 0}
