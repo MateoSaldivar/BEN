@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using ST = Utils.SymbolTable;
+
 
 namespace Utils {
 	[Serializable]
@@ -69,7 +69,7 @@ namespace Utils {
 		private (int, T)[] container;
 		private int lastIndex;
 		private int pointer;
-		public int length { get { return lastIndex; } }
+		public int Count { get { return lastIndex; } }
 
 		public OrderedMap() {
 			container = new (int, T)[DefaultCapacity];
@@ -116,7 +116,8 @@ namespace Utils {
 		}
 
 		public void Remove(int key) {
-			int index = Array.BinarySearch(container, 0, lastIndex, (key, default(T)));
+			int index = Index(key);
+
 
 			if (index >= 0) {
 				// Found the key, shift the rest of the items to the left
@@ -131,8 +132,31 @@ namespace Utils {
 			}
 		}
 
+		public void Remove(T value) {
+			int index = -1;
+
+			for (int i = 0; i < lastIndex; i++) {
+				if (container[i].Item2.Equals(value)) {
+					index = i;
+					break;
+				}
+			}
+
+			if (index >= 0) {
+				// Found the value, shift the rest of the items to the left
+				for (int i = index; i < lastIndex - 1; i++) {
+					container[i] = container[i + 1];
+				}
+
+				// Set the last item to (int.MaxValue, default(T))
+				container[lastIndex - 1] = (int.MaxValue, default(T));
+
+				lastIndex--;
+			}
+		}
+
 		public object GetValue(int key) {
-			int index = Array.BinarySearch(container, 0, lastIndex, (key, default(T)));
+			int index = Index(key);
 			return index >= 0 ? container[index].Item2 : null;
 		}
 
@@ -182,7 +206,7 @@ namespace Utils {
 		}
 
 		public bool ContainsKey(int key) {
-			int index = Array.BinarySearch(container, 0, lastIndex, (key, default(T)));
+			int index = Index(key);
 			return index >= 0;
 		}
 
@@ -197,7 +221,7 @@ namespace Utils {
 		}
 
 		public bool TryGetValue(int key, out T value) {
-			int index = Array.BinarySearch(container, 0, lastIndex, (key, default(T)));
+			int index = Index(key);
 
 			if (index >= 0) {
 				value = container[index].Item2;
@@ -217,8 +241,12 @@ namespace Utils {
 
 		}
 
+		private int Index(int key) {
+			return  Array.BinarySearch(container, 0, lastIndex, (key, default(T)), Comparer<(int, T)>.Create((x, y) => x.Item1.CompareTo(y.Item1)));
+		}
+
 		public void UpdateValue(int id, T newValue) {
-			int index = Array.BinarySearch(container, 0, lastIndex, (id, default(T)));
+			int index = Index(id);
 
 			if (index >= 0) {
 				// Update the existing value

@@ -44,8 +44,8 @@ public class NPC : MonoBehaviour {
 		mover = GetComponent<NPCMovement>();
 		dynamicDisableable = GetComponent<DynamicDisableable>();
 		LoadAgentData(gameObject.name);
-		
 
+		agent.UpdateBelief("Outside",true);
 	}
 
 
@@ -58,8 +58,12 @@ public class NPC : MonoBehaviour {
 		//	}
 		//}
 		if (Input.GetKeyDown(KeyCode.P)) {
-			agent.AddDesire(new Desire("AtWork"));
+			agent.AddDesire(new Desire("InWork",true));
 		}
+		if (Input.GetKeyDown(KeyCode.O)) {
+			agent.AddDesire(new Desire("InHome",true));
+		}
+		
 		agent.Update(Time.deltaTime);
 		if (!checkingAgents) {
 			checkingAgents = true;
@@ -91,12 +95,14 @@ public class NPC : MonoBehaviour {
 		ST.Destroy();
 		ActionGraph.Destroy();
 		LoadAgentData(gameObject.name);
-		ActionGraph.MakePlan(ST.GetID("Hungry"),false,agent);
+
+		//ActionGraph.MakePlan(ST.GetID("Hungry"),false,agent);
+		agent.AddDesire(new Desire("InWork", true));
 
 		int counter = 0;
-		while (!agent.actionStack.empty && counter < 1000) {
+		while (counter < 1000) {
 			counter++;
-			agent.actionStack.Tick();
+			agent.Update(Time.deltaTime);
 		}
 /*
 		Agent agent = new Agent();
@@ -121,21 +127,43 @@ public class NPC : MonoBehaviour {
 	}
 
 	public State WalkTo(int id = 0) {
+		Debug.Log("walking to "+ id);
+		//return State.Success;
 		int node;
 		if(id == ST.GetID("Home")) {
 			node = ST.GetID(homeAddress);
-		}else if(id == ST.GetID("Work")) {
+		} else if(id == ST.GetID("Work")) {
 			node = ST.GetID(workAddress);
 		} else {
 			node = id;
 		}
-		if (mover.LastNode.id_num == node) return State.Success;
+		if (mover.LastNode.id_num == node) {
+			//logic to update beliefs
+			string placeBelief = "At" + ST.GetString(id);
+			print(placeBelief);
+			agent.UpdateBelief(placeBelief, true);
+			return State.Success;
+		}
 
 		if(!mover.walking || mover.targetNode != node) {
 			mover.GetPath(node);
 		}
 
 		return State.Running;
+	}
+
+	public State Enter(int id = 0) {
+		Debug.Log("entering to " + id);
+		transform.GetChild(0).gameObject.SetActive(false);
+		agent.UpdateBelief("Outside", false);
+		//check if door is open
+		return State.Success;
+	}
+
+	public State Exit(int id = 0) {
+		transform.GetChild(0).gameObject.SetActive(true);
+		agent.UpdateBelief("Outside", true);
+		return State.Success;
 	}
 
 	public void Request(string fact, bool state, string utility, params (int,bool)[] preconditions) {

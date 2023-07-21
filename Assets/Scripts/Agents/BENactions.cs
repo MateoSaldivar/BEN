@@ -15,8 +15,6 @@ namespace GOBEN {
 	}
 	[Serializable]
 	public class Action {
-
-
 		public OrderedMap<bool> environmentalPreconditions;
 		public OrderedMap<bool> preconditions;
 		public OrderedMap<bool> effects;
@@ -60,7 +58,7 @@ namespace GOBEN {
 		}
 
 		public virtual bool CheckEnvironmentalPreconditions() {
-			if (environmentalPreconditions.length > 0) {
+			if (environmentalPreconditions.Count > 0) {
 				while (!environmentalPreconditions.CompletedList()) {
 					int ID = environmentalPreconditions.GetCurrentKey();
 					bool PreconditionItem = environmentalPreconditions.GetCurrentValue();
@@ -80,7 +78,7 @@ namespace GOBEN {
 		}
 
 		public virtual bool CheckLocalPreconditions(Agent agent) {
-			if (preconditions.length > 0) {
+			if (preconditions.Count > 0) {
 				while (!preconditions.CompletedList()) {
 					int ID = preconditions.GetCurrentKey();
 					bool PreconditionItem = preconditions.GetCurrentValue();
@@ -507,7 +505,7 @@ namespace GOBEN {
 			int actionID = SymbolTable.GetID(action.name);
 			actions[actionID] = action;
 
-			for (int i = 0; i < action.effects.length; i++) {
+			for (int i = 0; i < action.effects.Count; i++) {
 				desireDictionary.AddReference(action.effects.GetKey(i), action.effects[i], actionID);
 			}
 		}
@@ -516,7 +514,7 @@ namespace GOBEN {
 			int actionID = SymbolTable.GetID(action.name);
 			actions.Remove(actionID);
 
-			for (int i = 0; i < action.effects.length; i++) {
+			for (int i = 0; i < action.effects.Count; i++) {
 				desireDictionary.RemoveReference((action.effects.GetKey(i), action.effects[i]), actionID);
 			}
 		}

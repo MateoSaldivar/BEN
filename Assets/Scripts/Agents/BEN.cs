@@ -1,338 +1,378 @@
 using System;
 using System.Collections.Generic;
 using Utils;
-//todo
-//finish norms
-//make norm editor
-//load norms
-//design intentions 
-//laws and obligations tresholds
-//Add reaction module
+
 
 namespace GOBEN {
 
 	[Serializable]
-	public class Agent {
-		public struct agentPerceived {
-			public Agent agent;
-			public float timer;
-		}
+    public class Agent {
+        public struct AgentPerceived {
+            public Agent agent;
+            public float timer;
+        }
 
-		#region Variables
-		public Dictionary<int, Func<int, State>> actions;
-		public OrderedMap<Belief> beliefs;
-		private List<Belief> decomposingBeliefs;
-		public OrderedMap<Desire> desires;
-		public OrderedMap<Obligation> obligations;
-		public Dictionary<int, Emotion> currentEmotions;
-		public Dictionary<Agent, Relationship> relationships;
-		public float emotionalObedienceMultiplier = 1;
-		public Intention currentIntention;
-		private Personality personality;
-		public ActionStack actionStack;
-		public bool followingObligations;
+        public Dictionary<int, Func<int, State>> actions;
+        public OrderedMap<Belief> beliefs;
+        private List<Belief> decomposingBeliefs;
+        public OrderedMap<Desire> desires;
+        public OrderedMap<Obligation> obligations;
+        public Dictionary<int, Emotion> currentEmotions;
+        public Dictionary<Agent, Relationship> relationships;
+        public float emotionalObedienceMultiplier = 1;
+        public Intention currentIntention;
+        private Personality personality;
+        public ActionStack actionStack;
+        public bool followingObligations;
 
-		public List<agentPerceived> perceivedAgents;
+        public List<AgentPerceived> perceivedAgents;
 
-		float intentionCooldownTimer = 0f;
-		#endregion
+        private float intentionCooldownTimer = 0f;
 
-		public Agent() {
-			beliefs = new OrderedMap<Belief>(30);
-			decomposingBeliefs = new List<Belief>(30);
-			desires = new OrderedMap<Desire>(30);
-			currentIntention = null;
-			personality = null;
+        public Agent() {
+            beliefs = new OrderedMap<Belief>(30);
+            decomposingBeliefs = new List<Belief>(30);
+            desires = new OrderedMap<Desire>(30);
+            currentIntention = null;
+            personality = null;
 
-			actions = new Dictionary<int, Func<int, State>>();
-			perceivedAgents = new List<agentPerceived>();
-			currentEmotions = new Dictionary<int, Emotion>();
-			relationships = new Dictionary<Agent, Relationship>();
-			actionStack = new ActionStack(this);
-			followingObligations = false;
-		}
-		public void InitializeActions(string jsonpath) {
-			actions = new Dictionary<int, Func<int, State>>();
+            actions = new Dictionary<int, Func<int, State>>();
+            perceivedAgents = new List<AgentPerceived>();
+            currentEmotions = new Dictionary<int, Emotion>();
+            relationships = new Dictionary<Agent, Relationship>();
+            actionStack = new ActionStack(this);
+            followingObligations = false;
+        }
 
-			// Request the array of action keys from ActionGraph
-			var actionKeys = ActionGraph.GetActionKeys(jsonpath);
-			beliefs = new OrderedMap<Belief>(30);
-			decomposingBeliefs = new List<Belief>(30);
-			desires = new OrderedMap<Desire>(30);
-			actionStack = new ActionStack(this);
-			// Set all the keys in the actions dictionary of the agent to the keys inside the actionGraph container
-			foreach (int key in actionKeys) {
-				actions[key] = null;
-			}
-		}
-		public void LoadNewAgent() {
-			beliefs = new OrderedMap<Belief>(30);
-			decomposingBeliefs = new List<Belief>(30);
-			desires = new OrderedMap<Desire>(30);
-			currentIntention = null;
-		}
+        public void InitializeActions(string jsonPath) {
+            actions = new Dictionary<int, Func<int, State>>();
 
-		public void Update(float deltaTime) {
-			UpdateBeliefs(deltaTime);
-			UpdatePerceivedAgents(deltaTime);
-			UpdateEmotions(deltaTime);
+            // Request the array of action keys from ActionGraph
+            var actionKeys = ActionGraph.GetActionKeys(jsonPath);
 
-			MakeDecision(deltaTime);
-			actionStack.Tick();
-		}
+            // Clear existing beliefs, desires, and action stack
+            beliefs = new OrderedMap<Belief>(30);
+            decomposingBeliefs = new List<Belief>(30);
+            desires = new OrderedMap<Desire>(30);
+            actionStack = new ActionStack(this);
 
-		private void UpdateEmotions(float deltaTime) {
-			List<int> emotionsToRemove = new List<int>();
-			if(currentEmotions == null) currentEmotions = new Dictionary<int, Emotion> ();
-			foreach (var emotion in currentEmotions) {
-				emotion.Value.Degrade(deltaTime);
-				if (emotion.Value.intensity <= 0) {
-					emotionsToRemove.Add(emotion.Key);
-				}
-			}
+            // Set all the keys in the actions dictionary of the agent to the keys inside the actionGraph container
+            foreach (int key in actionKeys) {
+                actions[key] = null;
+            }
+        }
 
-			foreach (var emotionKey in emotionsToRemove) {
-				currentEmotions.Remove(emotionKey);
-			}
-		}
+        public void LoadNewAgent() {
+            beliefs = new OrderedMap<Belief>(30);
+            decomposingBeliefs = new List<Belief>(30);
+            desires = new OrderedMap<Desire>(30);
+            currentIntention = null;
+        }
 
-		private void UpdateBeliefs(float deltaTime) {
-			if(decomposingBeliefs == null)decomposingBeliefs = new List<Belief> ();
-			for (int i = decomposingBeliefs.Count - 1; i >= 0; i--) {
-				Belief belief = decomposingBeliefs[i];
-				belief.Degrade(deltaTime);
-				if (belief.lifeTime <= 0) {
-					beliefs.Remove(belief.ID);
-				}
-			}
-		}
+        public void Update(float deltaTime) {
+            UpdateBeliefs(deltaTime);
+            UpdatePerceivedAgents(deltaTime);
+            UpdateEmotions(deltaTime);
 
-		private void UpdatePerceivedAgents(float deltaTime) {
-			if(perceivedAgents == null) perceivedAgents = new List<agentPerceived> { };
-			for (int i = perceivedAgents.Count - 1; i >= 0; i--) {
-				agentPerceived perceivedAgent = perceivedAgents[i];
-				perceivedAgent.timer -= deltaTime;
-				if (perceivedAgent.timer <= 0) {
-					perceivedAgents.RemoveAt(i);
-				}
-			}
-		}
+            MakeDecision(deltaTime);
+            actionStack.Tick();
+        }
 
-		public void PerceiveAgent(Agent agent) {
-			// Check if the agent is already perceived
-			int index = GetPerceivedAgentIndex(agent);
-			if (index >= 0) {
-				// Update the timer to 60 seconds
-				agentPerceived perceivedAgent = perceivedAgents[index];
-				perceivedAgent.timer = 60f;
-				perceivedAgents[index] = perceivedAgent;
-			} else {
-				// Add the agent to the perceivedAgents list with a timer value of 60 seconds
-				perceivedAgents.Add(new agentPerceived { agent = agent, timer = 60f });
-			}
-		}
+        private void UpdateEmotions(float deltaTime) {
+            List<int> emotionsToRemove = new List<int>();
+            if (currentEmotions == null)
+                currentEmotions = new Dictionary<int, Emotion>();
+            foreach (var emotion in currentEmotions) {
+                emotion.Value.Degrade(deltaTime);
+                if (emotion.Value.intensity <= 0) {
+                    emotionsToRemove.Add(emotion.Key);
+                }
+            }
 
-		private int GetPerceivedAgentIndex(Agent agent) {
-			for (int i = 0; i < perceivedAgents.Count; i++) {
-				if (perceivedAgents[i].agent == agent) {
-					return i;
-				}
-			}
-			return -1; // Agent not found
-		}
+            foreach (var emotionKey in emotionsToRemove) {
+                currentEmotions.Remove(emotionKey);
+            }
+        }
 
-		public void MakeDecision(float deltaTime) {
-			if (KeepCurrentIntention(deltaTime)) {
-				if (actionStack.CanDoAction()) {
-					return;
-				} else {
-					SetNewPlan();
-				}
-			} else {
-				MakeIntention();
-				SetNewPlan();
-			}
-		}
+        private void UpdateBeliefs(float deltaTime) {
+            if (decomposingBeliefs == null)
+                decomposingBeliefs = new List<Belief>();
+            for (int i = decomposingBeliefs.Count - 1; i >= 0; i--) {
+                Belief belief = decomposingBeliefs[i];
+                belief.Degrade(deltaTime);
+                if (belief.lifeTime <= 0) {
+                    beliefs.Remove(belief.ID);
+                }
+            }
+        }
 
-		void SetNewPlan() {
-			if (currentIntention == null) return;
+        private void UpdatePerceivedAgents(float deltaTime) {
+            if (perceivedAgents == null)
+                perceivedAgents = new List<AgentPerceived>();
+            for (int i = perceivedAgents.Count - 1; i >= 0; i--) {
+                AgentPerceived perceivedAgent = perceivedAgents[i];
+                perceivedAgent.timer -= deltaTime;
+                if (perceivedAgent.timer <= 0) {
+                    perceivedAgents.RemoveAt(i);
+                }
+            }
+        }
 
-			Norm norm = ActionGraph.instance.GetNormPlan(currentIntention.ID, currentObedience());
-			if (norm.behavior != null) {
-				foreach (int actionId in norm.behavior) {
-					actionStack.AddAction(actionId);
-				}
-			} else {
-				(int, bool) state = currentIntention.desiredState;
-				ActionGraph.MakePlan(state.Item1, state.Item2, this);
-			}
-		}
+        public void UpdateBelief(string name, object value) {
+            if (beliefs == null) {
+                beliefs = new OrderedMap<Belief>();
+            }
 
-		bool KeepCurrentIntention(float deltaTime) {
-			if (currentIntention == null) {
-				intentionCooldownTimer = personality.consciousness * 80f;
-				return false;
-			}
+            Belief existingBelief;
+            if (beliefs.TryGetValue(SymbolTable.GetID(name), out existingBelief)) {
+                // Belief with the specified name already exists, update its value
+                existingBelief.value = value;
+            } else {
+                // Belief with the specified name does not exist, create a new belief and insert it
+                Belief newBelief = new Belief(name, value);
+                beliefs.Insert(newBelief.ID, newBelief);
+            }
+        }
 
-			if (intentionCooldownTimer > 0f) {
-				intentionCooldownTimer -= deltaTime;  
-				return true;  
-			}
+        public void PerceiveAgent(Agent agent) {
+            // Check if the agent is already perceived
+            int index = GetPerceivedAgentIndex(agent);
+            if (index >= 0) {
+                // Update the timer to 60 seconds
+                AgentPerceived perceivedAgent = perceivedAgents[index];
+                perceivedAgent.timer = 60f;
+                perceivedAgents[index] = perceivedAgent;
+            } else {
+                // Add the agent to the perceivedAgents list with a timer value of 60 seconds
+                perceivedAgents.Add(new AgentPerceived { agent = agent, timer = 60f });
+            }
+        }
 
-			Random random = new Random();
-			double randomValue = random.NextDouble();
-			intentionCooldownTimer = personality.consciousness * 80f;
+        private int GetPerceivedAgentIndex(Agent agent) {
+            for (int i = 0; i < perceivedAgents.Count; i++) {
+                if (perceivedAgents[i].agent == agent) {
+                    return i;
+                }
+            }
+            return -1; // Agent not found
+        }
 
-			return randomValue <= personality.probabilityOfKeepingIntention;
-		}
+        public void MakeDecision(float deltaTime) {
+            if (KeepCurrentIntention(deltaTime)) {
+                if (actionStack.CanDoAction()) {
+                    return;
+                } else {
+                    SetNewPlan();
+                }
+            } else if (HasObligationsAndDesires()) {
+                MakeIntention();
+                SetNewPlan();
+            }
+        }
 
-		float currentNormTreshold = 1;
+        private bool HasObligationsAndDesires() {
+            return (obligations != null && obligations.Count > 0) || (desires != null && desires.Count > 0);
+        }
 
-		public void MakeIntention() {
-			if (obligations == null) obligations = new OrderedMap<Obligation>();
-			if (desires == null) desires = new OrderedMap<Desire>();
-			(Motivation, float) bestObligation = ChooseIntention(obligations);
-			(Motivation, float) bestDesire = ChooseIntention(desires);
-			followingObligations = ObeyObligations(currentNormTreshold);
-			if (followingObligations && bestObligation.Item1 is Obligation bestObligationIntention) {
-				currentIntention = bestObligationIntention.ToIntention(this);
-			} else if (bestDesire.Item1 is Desire bestDesireIntention) {
-				currentIntention = bestDesireIntention.ToIntention(this);
-			}
-		}
+        private void SetNewPlan() {
+            if (currentIntention == null)
+                return;
 
-		float DesireExpectedUtility = 1f;
-		public float CalculateEmotionalObedienceMultiplier() {
-			float sumObedienceModifiers = 0;
-			int count = 0;
+            Norm norm = ActionGraph.instance.GetNormPlan(currentIntention.ID, currentObedience());
+            if (norm != null && norm.behavior != null) {
+                foreach (int actionId in norm.behavior) {
+                    actionStack.AddAction(actionId);
+                }
+            } else {
+                (int, bool) state = currentIntention.desiredState;
+                ActionGraph.MakePlan(state.Item1, state.Item2, this);
+                currentIntention = null;
+            }
+        }
 
-			foreach (var emotion in currentEmotions.Values) {
-				sumObedienceModifiers += emotion.obedienceModifier;
-				count++;
-			}
+        private bool KeepCurrentIntention(float deltaTime) {
+            if (currentIntention == null) {
+                intentionCooldownTimer = personality.consciousness * 80f;
+                return false;
+            }
 
-			return count > 0 ? sumObedienceModifiers / count : 1; // Return the average or 1 if no emotions present
-		}
+            if (intentionCooldownTimer > 0f) {
+                intentionCooldownTimer -= deltaTime;
+                return true;
+            }
 
-		public float CalculateSocialObedienceMultiplier() {
-			float perceivedAgentsCount = perceivedAgents.Count;
-			float relationshipMultiplier = 1;
+            Random random = new Random();
+            double randomValue = random.NextDouble();
+            intentionCooldownTimer = personality.consciousness * 80f;
 
-			foreach (var perceivedAgent in perceivedAgents) {
-				Agent agent = perceivedAgent.agent;
-				if (relationships.ContainsKey(agent)) {
-					Relationship relationship = relationships[agent];
+            return randomValue <= personality.probabilityOfKeepingIntention;
+        }
 
-					// Check if the other agent is following obligations
-					if (agent.followingObligations) {
-						relationshipMultiplier += relationship.liking;
-					} else {
-						relationshipMultiplier -= relationship.liking;
-					}
-				} else {
-					// Agent is not known, apply a light effect on obedience multiplier
-					relationshipMultiplier += 0.05f;
-				}
-			}
+        private float currentNormThreshold = 1;
 
-			float perceptionMultiplier = Math.Clamp(1 - perceivedAgentsCount * 0.1f, 0.1f, 1);
+        public void MakeIntention() {
+            if (obligations == null)
+                obligations = new OrderedMap<Obligation>();
+            if (desires == null)
+                desires = new OrderedMap<Desire>();
 
-			return perceptionMultiplier * relationshipMultiplier;
-		}
+            (Motivation, float) bestObligation = ChooseIntention(obligations);
+            (Motivation, float) bestDesire = ChooseIntention(desires);
 
-		public bool ObeyObligations(float obedienceThreshold) {
-			
+            followingObligations = ObeyObligations(currentNormThreshold);
 
-			return currentObedience() - DesireExpectedUtility > obedienceThreshold;
-		}
+            if (followingObligations && bestObligation.Item1 is Intention bestObligationIntention) {
+                currentIntention = bestObligationIntention;
+                //obligations.Remove((Obligation)currentIntention.origin);
+            } else if (bestDesire.Item1 is Intention bestDesireIntention) {
+                currentIntention = bestDesireIntention;
+                RemoveDesire(((Desire)currentIntention.origin).ID);
+            }
+        }
 
-		public float currentObedience() {
-			emotionalObedienceMultiplier = CalculateEmotionalObedienceMultiplier();
-			float socialObedienceMultiplier = CalculateSocialObedienceMultiplier();
+        private float DesireExpectedUtility = 1f;
 
-			float obedienceValue = personality.obedience * emotionalObedienceMultiplier * socialObedienceMultiplier;
+        public float CalculateEmotionalObedienceMultiplier() {
+            float sumObedienceModifiers = 0;
+            int count = 0;
 
-			Random random = new Random();
-			double randomFactor = random.NextDouble() * 0.2 + 0.9; // Adjust the range and value based on the impact of randomness
+            foreach (var emotion in currentEmotions.Values) {
+                sumObedienceModifiers += emotion.obedienceModifier;
+                count++;
+            }
 
-			obedienceValue *= (float)randomFactor;
-			return obedienceValue;
-		}
+            return count > 0 ? sumObedienceModifiers / count : 1;
+        }
 
-		public (Motivation, float) ChooseIntention<T>(OrderedMap<T> container) where T : Motivation {
-			float totalUtility = 0;
-			for (int i = 0; i < container.length; i++) {
-				float util = beliefs.ContainsKey(container[i].utilityID) ? (float)beliefs[container[i].utilityID].value : 0;
-				totalUtility += util;
-			}
+        public float CalculateSocialObedienceMultiplier() {
+            float perceivedAgentsCount = perceivedAgents.Count;
+            float relationshipMultiplier = 1;
 
-			Random random = new Random();
-			float randomValue = (float)random.NextDouble() * totalUtility;
+            foreach (var perceivedAgent in perceivedAgents) {
+                Agent agent = perceivedAgent.agent;
+                if (relationships.ContainsKey(agent)) {
+                    Relationship relationship = relationships[agent];
 
-			for (int i = 0; i < container.length; i++) {
-				float util = beliefs.ContainsKey(container[i].utilityID) ? (float)beliefs[container[i].utilityID].value : 0;
-				totalUtility -= util;
+                    if (agent.followingObligations) {
+                        relationshipMultiplier += relationship.liking;
+                    } else {
+                        relationshipMultiplier -= relationship.liking;
+                    }
+                } else {
+                    relationshipMultiplier += 0.05f;
+                }
+            }
 
-				if (randomValue <= 0 && container[i].CheckEnvironmentalPreconditions()) {
-					return (Motivation.TranslateToIntent(container[i]), util);
-				}
-			}
+            float perceptionMultiplier = Math.Clamp(1 - perceivedAgentsCount * 0.1f, 0.1f, 1);
 
-			return (null, 0f);
-		}
+            return perceptionMultiplier * relationshipMultiplier;
+        }
 
-		public void AddDesire(Desire desire) {
-			desires.Insert(desire.ID, desire);
-		}
-		public void RemoveDesire(int ID) {
-			if (desires.ContainsKey(ID)) desires.Remove(ID);
-		}
-		public void SetPersonality(float O, float C, float E, float A, float N) {
-			personality = new Personality(O, C, E, A, N);
-		}
-		public void SetPersonality(Personality personality) {
-			this.personality = personality.CopyPersonality();
-		}
-		public Personality GetPersonality() {
-			return personality;
-		}
-		public static Emotion EmotionalContagion(Agent agent_i, Agent agent_j, int emotionID, float threshold = 0.25f) {
-			Emotion em_i = agent_i.currentEmotions[emotionID];
-			if (em_i == null) {
-				return null;
-			}
+        public bool ObeyObligations(float obedienceThreshold) {
+            return currentObedience() - DesireExpectedUtility > obedienceThreshold;
+        }
 
-			float charisma_i = agent_i.GetPersonality().charisma;
-			float receptivity_j = agent_j.GetPersonality().receptivity;
-			float contagionFactor = charisma_i * receptivity_j;
+        public float currentObedience() {
+            emotionalObedienceMultiplier = CalculateEmotionalObedienceMultiplier();
+            float socialObedienceMultiplier = CalculateSocialObedienceMultiplier();
 
-			if (contagionFactor < threshold) {
-				return null;
-			}
+            float obedienceValue = personality.obedience * emotionalObedienceMultiplier * socialObedienceMultiplier;
 
-			Emotion em_j = agent_j.currentEmotions[emotionID];
-			float newIntensity;
-			float newDecay;
+            Random random = new Random();
+            double randomFactor = random.NextDouble() * 0.2 + 0.9;
 
-			if (em_j != null) {
-				newIntensity = em_j.intensity + em_i.intensity * contagionFactor;
-				newDecay = em_i.intensity > em_j.intensity ? em_i.decay : em_j.decay;
-			} else {
-				newIntensity = em_i.intensity * contagionFactor;
-				newDecay = em_i.decay;
-				agent_j.currentEmotions.Add(emotionID, em_j);
-			}
+            obedienceValue *= (float)randomFactor;
+            return obedienceValue;
+        }
 
-			newIntensity = Math.Clamp(newIntensity, 0, 1);
-			em_j.intensity = newIntensity;
-			em_j.decay = newDecay;
+        public (Motivation, float) ChooseIntention<T>(OrderedMap<T> container) where T : Motivation {
+            float totalUtility = 0;
 
-			return em_j;
-		}
-	}
+            if (container.Count == 1) {
+                float util = beliefs.ContainsKey(container[0].utilityID) ? (float)beliefs[container[0].utilityID].value : 0;
+                return (Motivation.TranslateToIntent(container[0]), util);
+            }
 
-	#region Cognitive Engine
-	[Serializable]
+            for (int i = 0; i < container.Count; i++) {
+                float util = beliefs.ContainsKey(container[i].utilityID) ? (float)beliefs[container[i].utilityID].value : 0;
+                totalUtility += util;
+            }
+
+            Random random = new Random();
+            float randomValue = (float)random.NextDouble() * totalUtility;
+
+            for (int i = 0; i < container.Count; i++) {
+                float util = beliefs.ContainsKey(container[i].utilityID) ? (float)beliefs[container[i].utilityID].value : 0;
+                totalUtility -= util;
+
+                if (randomValue <= 0 && container[i].CheckEnvironmentalPreconditions()) {
+                    return (Motivation.TranslateToIntent(container[i]), util);
+                }
+            }
+
+            return (null, 0f);
+        }
+
+        public void AddDesire(Desire desire) {
+            desires.Insert(desire.ID, desire);
+        }
+
+        public void RemoveDesire(int ID) {
+            if (desires.ContainsKey(ID))
+                desires.Remove(ID);
+        }
+
+        public void SetPersonality(float O, float C, float E, float A, float N) {
+            personality = new Personality(O, C, E, A, N);
+        }
+
+        public void SetPersonality(Personality personality) {
+            this.personality = personality.CopyPersonality();
+        }
+
+        public Personality GetPersonality() {
+            return personality;
+        }
+
+        public static Emotion EmotionalContagion(Agent agent_i, Agent agent_j, int emotionID, float threshold = 0.25f) {
+            Emotion em_i = agent_i.currentEmotions.ContainsKey(emotionID) ? agent_i.currentEmotions[emotionID] : null;
+
+            if (em_i == null) {
+                return null;
+            }
+
+            float charisma_i = agent_i.GetPersonality().charisma;
+            float receptivity_j = agent_j.GetPersonality().receptivity;
+            float contagionFactor = charisma_i * receptivity_j;
+
+            if (contagionFactor < threshold) {
+                return null;
+            }
+
+            Emotion em_j = agent_j.currentEmotions.ContainsKey(emotionID) ? agent_j.currentEmotions[emotionID] : null;
+            float newIntensity;
+            float newDecay;
+
+            if (em_j != null) {
+                newIntensity = em_j.intensity + em_i.intensity * contagionFactor;
+                newDecay = em_i.intensity > em_j.intensity ? em_i.decay : em_j.decay;
+            } else {
+                newIntensity = em_i.intensity * contagionFactor;
+                newDecay = em_i.decay;
+                agent_j.currentEmotions.Add(emotionID, em_j);
+            }
+
+            newIntensity = Math.Clamp(newIntensity, 0, 1);
+            em_j.intensity = newIntensity;
+            em_j.decay = newDecay;
+
+            return em_j;
+        }
+    }
+
+
+    #region Cognitive Engine
+    [Serializable]
 	public class MentalState {
 		public string name;
 		public int ID;
@@ -410,7 +450,7 @@ namespace GOBEN {
 			Intention intention = new Intention(name, priority);
 			intention.desiredState = desiredState;
 			intention.preconditions = new List<(int, bool)>(preconditions);
-			intention.environmentalPreconditions = new List<(int, bool)>(environmentalPreconditions);
+			intention.environmentalPreconditions = environmentalPreconditions == null ? null : new List<(int, bool)>(environmentalPreconditions);
 			intention.utilityID = utilityID;
 			return intention;
 		}
@@ -422,9 +462,13 @@ namespace GOBEN {
 
 		public static Intention TranslateToIntent(Motivation motivation) {
 			if (motivation is Desire desire) {
-				return new Intention(desire.name, desire.priority, desire.preconditions);
+				Intention tmpIntention =  new Intention(desire.name, desire.priority, desire.desiredState,desire.preconditions);
+				tmpIntention.origin = desire;
+				return tmpIntention;
 			} else if (motivation is Obligation obligation) {
-				return new Intention(obligation.name, obligation.priority, obligation.preconditions);
+				Intention tmpIntention = new Intention(obligation.name, obligation.priority, obligation.desiredState, obligation.preconditions);
+				tmpIntention.origin = obligation;
+				return tmpIntention;
 			} else {
 				// Handle other cases or throw an exception if needed
 				return null;
@@ -447,13 +491,15 @@ namespace GOBEN {
 	}
 	[Serializable]
 	public class Intention : Motivation {
+		public object origin;
 		public Intention(string name, float priority) {
 			this.name = name;
 			this.priority = priority;
 		}
-		public Intention(string name, float priority, List<(int, bool)> preconditions) {
+		public Intention(string name, float priority, (int, bool) desiredState, List<(int, bool)> preconditions) {
 			this.name = name;
 			this.priority = priority;
+			this.desiredState = desiredState;
 			this.preconditions = preconditions;
 		}
 	}

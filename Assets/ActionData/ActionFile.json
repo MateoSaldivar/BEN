@@ -3,7 +3,12 @@
         {
             "name": "WalkTo_Home",
             "environmentalPreconditions": [],
-            "preconditions": [],
+            "preconditions": [
+                {
+                    "key": "Outside",
+                    "op": true
+                }
+            ],
             "effects": [
                 {
                     "key": "AtHome",
@@ -11,13 +16,21 @@
                 }
             ],
             "utilityBelief": "",
-            "connections": [],
+            "connections": [
+                7,
+                8
+            ],
             "actionID": 0
         },
         {
             "name": "WalkTo_Work",
             "environmentalPreconditions": [],
-            "preconditions": [],
+            "preconditions": [
+                {
+                    "key": "Outside",
+                    "op": true
+                }
+            ],
             "effects": [
                 {
                     "key": "AtWork",
@@ -25,7 +38,10 @@
                 }
             ],
             "utilityBelief": "",
-            "connections": [],
+            "connections": [
+                7,
+                8
+            ],
             "actionID": 1
         },
         {
@@ -34,6 +50,10 @@
             "preconditions": [
                 {
                     "key": "HasGatherTarget",
+                    "op": true
+                },
+                {
+                    "key": "Outside",
                     "op": true
                 }
             ],
@@ -44,7 +64,10 @@
                 }
             ],
             "utilityBelief": "",
-            "connections": [],
+            "connections": [
+                7,
+                8
+            ],
             "actionID": 2
         },
         {
@@ -109,6 +132,62 @@
                 3
             ],
             "actionID": 5
+        },
+        {
+            "name": "Enter_Work",
+            "environmentalPreconditions": [],
+            "preconditions": [
+                {
+                    "key": "AtWork",
+                    "op": true
+                }
+            ],
+            "effects": [
+                {
+                    "key": "InWork",
+                    "op": true
+                }
+            ],
+            "utilityBelief": "",
+            "connections": [
+                1
+            ],
+            "actionID": 6
+        },
+        {
+            "name": "Enter_Home",
+            "environmentalPreconditions": [],
+            "preconditions": [
+                {
+                    "key": "AtHome",
+                    "op": true
+                }
+            ],
+            "effects": [
+                {
+                    "key": "InHome",
+                    "op": true
+                }
+            ],
+            "utilityBelief": "",
+            "connections": [
+                0
+            ],
+            "actionID": 7
+        },
+        {
+            "name": "Exit",
+            "environmentalPreconditions": [],
+            "preconditions": [],
+            "effects": [
+                {
+                    "key": "Outside",
+                    "op": true
+                }
+            ],
+            "utilityBelief": "",
+            "connections": [],
+            "actionID": 8
         }
     ]
 }
