@@ -150,6 +150,7 @@ MonoBehaviour:
   inventory: {fileID: 0}
   economy: {fileID: 0}
   social: {fileID: 0}
+  agentOfInterest: {fileID: 0}
 --- !u!1 &5204688329771680478
 GameObject:
   m_ObjectHideFlags: 0
@@ -223,7 +224,7 @@ SpriteRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
-  m_Sprite: {fileID: 21300000, guid: 949f9dc5ed692924e8c44ce8f5df82d4, type: 3}
+  m_Sprite: {fileID: 21300000, guid: d9d15ee701dfb014d96207b12f469082, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
@@ -308,7 +309,7 @@ SpriteRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
-  m_Sprite: {fileID: 569506451, guid: 07488b4902d3a5940adc8301a1dcce9e, type: 3}
+  m_Sprite: {fileID: -962721042, guid: 0a2e5d339b24b574386ef84345f65f21, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0

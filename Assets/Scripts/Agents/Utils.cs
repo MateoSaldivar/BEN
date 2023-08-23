@@ -22,14 +22,10 @@ namespace Utils {
 		static int _NextID = 1;
 
 		public static int GetID(string key) {
+			EnsureIDTableInitialized();
+
 			if (string.IsNullOrEmpty(key)) {
 				throw new ArgumentException("Key cannot be null or empty");
-			}
-
-			if (_IDTable == null) {
-				_NextID = 1;
-				_IDTable = new Dictionary<string, int>();
-				_IDTable["none"] = 0;
 			}
 
 			if (_IDTable.ContainsKey(key)) {
@@ -41,18 +37,40 @@ namespace Utils {
 			}
 		}
 
+		private static void EnsureIDTableInitialized() {
+			if (_IDTable == null) {
+				_NextID = 1;
+				_IDTable = new Dictionary<string, int>();
+				_IDTable["none"] = 0;
+			}
+		}
+
 		public static string GetString(int id) {
+			EnsureSymbolTableInitialized();
+
+			string key = FindKeyById(id);
+
+			if (key != null) {
+				return key;
+			}
+
+			throw new ArgumentException($"ID {id} not found in SymbolTable");
+		}
+
+		private static void EnsureSymbolTableInitialized() {
 			if (_IDTable == null) {
 				throw new InvalidOperationException("SymbolTable is not initialized");
 			}
+		}
 
+		private static string FindKeyById(int id) {
 			foreach (var entry in _IDTable) {
 				if (entry.Value == id) {
 					return entry.Key;
 				}
 			}
 
-			throw new ArgumentException($"ID {id} not found in SymbolTable");
+			return null;
 		}
 
 		public static void Destroy() {
@@ -94,56 +112,72 @@ namespace Utils {
 		}
 
 		public void Insert(int key, T value) {
-			if (lastIndex == container.Length) {
-				Array.Resize(ref container, container.Length * 2);
+			EnsureCapacity();
 
-				// Fill the new slots with (int.MaxValue, null)
-				for (int i = lastIndex; i < container.Length; i++) {
-					container[i] = (int.MaxValue, default(T));
-				}
-			}
+			int index = FindInsertionIndex(key);
 
-			int index = lastIndex;
-
-			// Find the insertion index based on the key order
-			while (index > 0 && container[index - 1].Item1 > key) {
-				container[index] = container[index - 1];
-				index--;
+			// Shift elements to make space for the new item
+			for (int i = lastIndex; i > index; i--) {
+				container[i] = container[i - 1];
 			}
 
 			container[index] = (key, value);
 			lastIndex++;
 		}
 
-		public void Remove(int key) {
-			int index = Index(key);
+		private void EnsureCapacity() {
+			if (lastIndex == container.Length) {
+				Array.Resize(ref container, container.Length * 2);
 
-
-			if (index >= 0) {
-				// Found the key, shift the rest of the items to the left
-				for (int i = index; i < lastIndex - 1; i++) {
-					container[i] = container[i + 1];
+				// Fill the new slots with (int.MaxValue, default(T))
+				for (int i = lastIndex; i < container.Length; i++) {
+					container[i] = (int.MaxValue, default(T));
 				}
-
-				// Set the last item to (int.MaxValue, default(T))
-				container[lastIndex - 1] = (int.MaxValue, default(T));
-
-				lastIndex--;
 			}
+		}
+
+		private int FindInsertionIndex(int key) {
+			int index = lastIndex;
+
+			// Find the insertion index based on the key order
+			while (index > 0 && container[index - 1].Item1 > key) {
+				index--;
+			}
+
+			return index;
+		}
+
+		public void Remove(int key) {
+			int index = FindIndexByKey(key);
+			RemoveAtIndex(index);
 		}
 
 		public void Remove(T value) {
-			int index = -1;
+			int index = FindIndexByValue(value);
+			RemoveAtIndex(index);
+		}
 
+		private int FindIndexByKey(int key) {
 			for (int i = 0; i < lastIndex; i++) {
-				if (container[i].Item2.Equals(value)) {
-					index = i;
-					break;
+				if (container[i].Item1 == key) {
+					return i;
 				}
 			}
+			return -1;
+		}
 
+		private int FindIndexByValue(T value) {
+			for (int i = 0; i < lastIndex; i++) {
+				if (container[i].Item2.Equals(value)) {
+					return i;
+				}
+			}
+			return -1;
+		}
+
+		private void RemoveAtIndex(int index) {
 			if (index >= 0) {
-				// Found the value, shift the rest of the items to the left
+				// Found the element, shift the rest of the items to the left
 				for (int i = index; i < lastIndex - 1; i++) {
 					container[i] = container[i + 1];
 				}
@@ -154,7 +188,6 @@ namespace Utils {
 				lastIndex--;
 			}
 		}
-
 		public object GetValue(int key) {
 			int index = Index(key);
 			return index >= 0 ? container[index].Item2 : null;

@@ -37,7 +37,7 @@ Transform:
   - {fileID: 2892845969913261127}
   - {fileID: 5822095206898731678}
   m_Father: {fileID: 0}
-  m_RootOrder: 25
+  m_RootOrder: 9
   m_LocalEulerAnglesHint: {x: 0, y: 180, z: 0}
 --- !u!54 &6980725736131379620
 Rigidbody:
@@ -93,6 +93,8 @@ MonoBehaviour:
   targetPosition: {x: 0, y: 0}
   LastNode: {fileID: 0}
   stopped: 0
+  walking: 0
+  targetNode: 0
 --- !u!143 &3459667080564644365
 CharacterController:
   m_ObjectHideFlags: 0
@@ -148,6 +150,7 @@ MonoBehaviour:
   inventory: {fileID: 0}
   economy: {fileID: 0}
   social: {fileID: 0}
+  agentOfInterest: {fileID: 0}
 --- !u!1 &7027254500287163833
 GameObject:
   m_ObjectHideFlags: 0

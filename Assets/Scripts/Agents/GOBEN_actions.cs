@@ -58,44 +58,61 @@ namespace GOBEN {
 		}
 
 		public virtual bool CheckEnvironmentalPreconditions() {
-			if (environmentalPreconditions.Count > 0) {
-				while (!environmentalPreconditions.CompletedList()) {
-					int ID = environmentalPreconditions.GetCurrentKey();
-					bool PreconditionItem = environmentalPreconditions.GetCurrentValue();
-					object state = WorldState.worldstate.Cycle(ID);
-					if (state == null || !Compare(state, PreconditionItem)) {
-						environmentalPreconditions.ResetPointer();
-						WorldState.worldstate.ResetPointer();
-						return false;
-					} else {
-						environmentalPreconditions.Advance();
-					}
-				}
-				environmentalPreconditions.ResetPointer();
-				WorldState.worldstate.ResetPointer();
+			if (environmentalPreconditions.Count == 0) {
+				return true; // No preconditions, so the check passes.
 			}
-			return true;
+
+			ResetPointers(); // Reset the pointers before starting the check.
+
+			while (!environmentalPreconditions.CompletedList()) {
+				int ID = environmentalPreconditions.GetCurrentKey();
+				bool PreconditionItem = environmentalPreconditions.GetCurrentValue();
+				object state = WorldState.worldstate.Cycle(ID);
+
+				if (state == null || !Compare(state, PreconditionItem)) {
+					ResetPointers(); // Reset the pointers before returning.
+					return false; // Preconditions check failed.
+				}
+
+				environmentalPreconditions.Advance();
+			}
+
+			ResetPointers(); // Reset the pointers after completing the check.
+			return true; // All preconditions are met.
+		}
+
+		private void ResetPointers() {
+			environmentalPreconditions.ResetPointer();
+			WorldState.worldstate.ResetPointer();
 		}
 
 		public virtual bool CheckLocalPreconditions(Agent agent) {
-			if (preconditions.Count > 0) {
-				while (!preconditions.CompletedList()) {
-					int ID = preconditions.GetCurrentKey();
-					bool PreconditionItem = preconditions.GetCurrentValue();
-					Belief belief = agent.beliefs.Cycle(ID);
-					if (belief == null || !Compare(belief.value, PreconditionItem)) {
-						preconditions.ResetPointer();
-						agent.beliefs.ResetPointer();
-						return false;
-					} else {
-						preconditions.Advance();
-					}
+			if (preconditions.Count == 0) {
+				return true; // No preconditions, so the check passes.
+			}
+
+			ResetPointers(agent); // Reset the pointers before starting the check.
+
+			while (!preconditions.CompletedList()) {
+				int ID = preconditions.GetCurrentKey();
+				bool PreconditionItem = preconditions.GetCurrentValue();
+				Belief belief = agent.beliefs.Cycle(ID);
+
+				if (belief == null || !Compare(belief.value, PreconditionItem)) {
+					ResetPointers(agent); // Reset the pointers before returning.
+					return false; // Preconditions check failed.
 				}
 
-				preconditions.ResetPointer();
-				agent.beliefs.ResetPointer();
+				preconditions.Advance();
 			}
-			return true;
+
+			ResetPointers(agent); // Reset the pointers after completing the check.
+			return true; // All preconditions are met.
+		}
+
+		private void ResetPointers(Agent agent) {
+			preconditions.ResetPointer();
+			agent.beliefs.ResetPointer();
 		}
 
 		private static bool Compare(object check, bool op) {
@@ -164,20 +181,23 @@ namespace GOBEN {
 			if (currentActionIndex < subActions.Count) {
 				Action currentAction = subActions[currentActionIndex];
 				State result = currentAction.Tick(parameter_id);
-				if (result != State.Inactive) // Assuming State.Inactive represents a non-executable state
-				{
-					if (result == State.Success) {
-						currentActionIndex++;
-						if (currentActionIndex >= subActions.Count) {
-							return State.Success;
-						}
-					} else if (result == State.Failed) {
-						return State.Failed;
+				return CheckActionState(result);
+			}
+
+			currentActionIndex = 0;
+			return State.Inactive;
+		}
+
+		protected State CheckActionState(State result) {
+			if (result != State.Inactive) {
+				if (result == State.Success) {
+					currentActionIndex++;
+					if (currentActionIndex >= subActions.Count) {
+						return State.Success;
 					}
 				}
 			}
-			currentActionIndex = 0;
-			return State.Inactive;
+			return result;
 		}
 	}
 
@@ -210,31 +230,40 @@ namespace GOBEN {
 		}
 
 		public override State Tick(int parameter_id = 0) {
-			bool allActionsComplete = true;
+			UpdateSubActionStates(parameter_id);
+			return DetermineOverallState();
+		}
 
+		private void UpdateSubActionStates(int parameter_id) {
 			for (int i = 0; i < subActions.Count; i++) {
 				if (subActionStates[i] != State.Success && subActionStates[i] != State.Failed) {
 					Action currentAction = subActions[i];
 					State result = currentAction.Tick(parameter_id);
 					subActionStates[i] = result;
-
-					if (result != State.Success) {
-						allActionsComplete = false;
-					}
 				}
 			}
+		}
 
-			if (allActionsComplete) {
-				return State.Success;
-			}
-
-			return State.Running;
+		private State DetermineOverallState() {
+			bool allActionsComplete = subActionStates.All(state => state == State.Success);
+			return allActionsComplete ? State.Success : State.Running;
 		}
 	}
 
 	[Serializable]
 	public class FuzzySelector : CompositeAction {
 		public override State Tick(Agent agent, int parameter_id = 0) {
+			Action selectedAction = FindBestAction(agent);
+
+			if (selectedAction != null) {
+				State result = selectedAction.Tick(parameter_id);
+				return result != State.Inactive ? result : State.Failed;
+			}
+
+			return State.Failed;
+		}
+
+		private Action FindBestAction(Agent agent) {
 			Action selectedAction = null;
 			float highestUtility = int.MinValue;
 
@@ -248,12 +277,7 @@ namespace GOBEN {
 				}
 			}
 
-			if (selectedAction != null) {
-				State result = selectedAction.Tick(parameter_id);
-				return result != State.Inactive ? result : State.Failed;
-			}
-
-			return State.Failed;
+			return selectedAction;
 		}
 
 		private float CalculateUtility(Agent agent, Action action) {
@@ -267,12 +291,10 @@ namespace GOBEN {
 			foreach (Action subAction in subActions) {
 				if (subAction.CheckPreconditions(agent)) {
 					State result = subAction.Tick(parameter_id);
-					if (result == State.Failed) {
-						// Try the next action if the current one failed
-						continue;
-					} else {
+					if (result != State.Failed) {
 						return result;
 					}
+					// Try the next action if the current one failed
 				}
 			}
 			return State.Failed;
@@ -291,24 +313,40 @@ namespace GOBEN {
 
 		public override State Tick(Agent agent, int parameter_id = 0) {
 			if (currentCount < repeatCount) {
-				Action currentAction = subActions[currentCount];
-				State result = currentAction.Tick(parameter_id);
-				if (result == State.Success) {
-					currentCount++;
-					if (currentCount >= subActions.Count) {
-						currentCount = 0;
-						return State.Success;
-					}
-				} else if (result == State.Failed) {
-					currentCount = 0;
-					return State.Failed;
-				}
+				Action currentAction = GetNextSubAction();
+				State result = ExecuteSubAction(currentAction, parameter_id);
+				return HandleSubActionResult(result);
 			} else {
-				currentCount = 0;
+				ResetCounter();
 				return State.Success;
+			}
+		}
+
+		private State HandleSubActionResult(State result) {
+			if (result == State.Success) {
+				currentCount++;
+				if (currentCount >= subActions.Count) {
+					ResetCounter();
+					return State.Success;
+				}
+			} else if (result == State.Failed) {
+				ResetCounter();
+				return State.Failed;
 			}
 
 			return State.Running;
+		}
+
+		private Action GetNextSubAction() {
+			return subActions[currentCount];
+		}
+
+		private State ExecuteSubAction(Action action, int parameter_id) {
+			return action.Tick(parameter_id);
+		}
+
+		private void ResetCounter() {
+			currentCount = 0;
 		}
 	}
 
@@ -325,38 +363,41 @@ namespace GOBEN {
 		public override State Tick(Agent agent, float deltaTime, int parameter_id = 0) {
 			if (elapsedTime < duration) {
 				elapsedTime += deltaTime;
-
-				foreach (Action subAction in subActions) {
-					if (subAction.CheckPreconditions(agent)) {
-						State result = subAction.Tick(parameter_id);
-						if (result == State.Success) {
-							elapsedTime = 0f;
-							return State.Success;
-						}
-					}
-				}
-
-				return State.Running;
+				return RunSubActions(agent, parameter_id);
 			} else {
-				elapsedTime = 0f;
+				ResetElapsedTime();
 				return State.Success;
 			}
 		}
+
+		private State RunSubActions(Agent agent, int parameter_id) {
+			foreach (Action subAction in subActions) {
+				if (subAction.CheckPreconditions(agent)) {
+					State result = ExecuteSubAction(subAction, parameter_id);
+					if (result == State.Success) {
+						ResetElapsedTime();
+						return State.Success;
+					}
+				}
+			}
+
+			return State.Running;
+		}
+
+		private State ExecuteSubAction(Action action, int parameter_id) {
+			return action.Tick(parameter_id);
+		}
+
+		private void ResetElapsedTime() {
+			elapsedTime = 0f;
+		}
+
 	}
 
 	[Serializable]
 	public class ParallelSequence : CompositeAction {
 		public override State Tick(Agent agent, int parameter_id = 0) {
-			bool allActionsComplete = true;
-
-			foreach (Action subAction in subActions) {
-				if (subAction.CheckPreconditions(agent)) {
-					State result = subAction.Tick(parameter_id);
-					if (result != State.Success) {
-						allActionsComplete = false;
-					}
-				}
-			}
+			bool allActionsComplete = AreAllSubActionsComplete(agent, parameter_id);
 
 			if (allActionsComplete) {
 				return State.Success;
@@ -364,6 +405,24 @@ namespace GOBEN {
 
 			return State.Running;
 		}
+
+		private bool AreAllSubActionsComplete(Agent agent, int parameter_id) {
+			foreach (Action subAction in subActions) {
+				if (subAction.CheckPreconditions(agent)) {
+					State result = ExecuteSubAction(subAction, parameter_id);
+					if (result != State.Success) {
+						return false;
+					}
+				}
+			}
+
+			return true;
+		}
+
+		private State ExecuteSubAction(Action action, int parameter_id) {
+			return action.Tick(parameter_id);
+		}
+
 	}
 
 	[Serializable]
@@ -393,20 +452,30 @@ namespace GOBEN {
 		public override State Tick(Agent agent, float deltaTime, int parameter_id = 0) {
 			if (elapsedTime < timeLimit) {
 				elapsedTime += deltaTime;
-
-				foreach (Action subAction in subActions) {
-					if (subAction.CheckPreconditions(agent)) {
-						State result = subAction.Tick(parameter_id);
-						return result;
-
-					}
-				}
-
-				return State.Running;
+				State subActionResult = ExecuteSubActions(agent, parameter_id);
+				return subActionResult;
 			} else {
-				elapsedTime = 0f;
+				ResetElapsedTime();
 				return State.Failed;
 			}
+		}
+
+		private State ExecuteSubActions(Agent agent, int parameter_id) {
+			foreach (Action subAction in subActions) {
+				if (subAction.CheckPreconditions(agent)) {
+					return ExecuteSubAction(subAction, parameter_id);
+				}
+			}
+
+			return State.Running;
+		}
+
+		private State ExecuteSubAction(Action action, int parameter_id) {
+			return action.Tick(parameter_id);
+		}
+
+		private void ResetElapsedTime() {
+			elapsedTime = 0f;
 		}
 	}
 
@@ -442,7 +511,7 @@ namespace GOBEN {
 		public float violationTime;
 
 		public Norm() {
-			// Default constructor
+		
 		}
 
 		public Norm(string name, string intentionId, string contextId, bool contextEnabled, float obedienceThreshold, float priority, int[] behavior, float violationTime) {
@@ -501,23 +570,37 @@ namespace GOBEN {
 
 
 		public void Insert(Action action) {
-			if (desireDictionary == null) desireDictionary = new ActionReferences();
+			InitializeDesireDictionary();
 			int actionID = SymbolTable.GetID(action.name);
 			actions[actionID] = action;
-
-			for (int i = 0; i < action.effects.Count; i++) {
-				desireDictionary.AddReference(action.effects.GetKey(i), action.effects[i], actionID);
-			}
+			UpdateDesireDictionary(action, actionID);
 		}
 
 		public void Remove(Action action) {
 			int actionID = SymbolTable.GetID(action.name);
 			actions.Remove(actionID);
+			UpdateDesireDictionaryForRemoval(action);
+		}
 
+		private void InitializeDesireDictionary() {
+			if (desireDictionary == null) {
+				desireDictionary = new ActionReferences();
+			}
+		}
+
+		private void UpdateDesireDictionary(Action action, int actionID) {
+			for (int i = 0; i < action.effects.Count; i++) {
+				desireDictionary.AddReference(action.effects.GetKey(i), action.effects[i], actionID);
+			}
+		}
+
+		private void UpdateDesireDictionaryForRemoval(Action action) {
+			int actionID = SymbolTable.GetID(action.name);
 			for (int i = 0; i < action.effects.Count; i++) {
 				desireDictionary.RemoveReference((action.effects.GetKey(i), action.effects[i]), actionID);
 			}
 		}
+
 		public void LoadActionsFromJson(string jsonFilePath) {
 			string json = File.ReadAllText(jsonFilePath);
 			FileActionWrapper fileActionWrapper = JsonConvert.DeserializeObject<FileActionWrapper>(json);
@@ -530,54 +613,59 @@ namespace GOBEN {
 
 		public static Action TranslateFileActionToAction(FileAction fileAction) {
 			Action newAction = new Action();
-			SymbolTable.GetID(fileAction.name);
 
-			// Extract the substring before the underscore
-			int underscoreIndex = fileAction.name.IndexOf('_');
-			string extractedName = (underscoreIndex >= 0)
-				? fileAction.name.Substring(0, underscoreIndex)
-				: fileAction.name;
-
+			// Extract the name and function from fileAction
+			string extractedName = ExtractName(fileAction.name);
 			newAction.name = fileAction.name;
 			newAction.function = SymbolTable.GetID(extractedName);
 
-			// Extract the second part as a parameter
-			string parameter = (underscoreIndex >= 0 && underscoreIndex < fileAction.name.Length - 1)
-				? fileAction.name.Substring(underscoreIndex + 1)
-				: string.Empty;
+			// Extract the parameterID from fileAction
+			newAction.parameterID = ExtractParameterID(fileAction.name);
 
-			newAction.parameterID = parameter != string.Empty ? SymbolTable.GetID(parameter) : 0;
-
-			newAction.utilityBelief = fileAction.utilityBelief != "" ? SymbolTable.GetID(fileAction.utilityBelief) : 0;
+			newAction.utilityBelief = !string.IsNullOrEmpty(fileAction.utilityBelief) ? SymbolTable.GetID(fileAction.utilityBelief) : 0;
 			newAction.actionID = fileAction.actionID;
 			newAction.connections = fileAction.connections;
 
-			// Translate environmentalpreconditions
-			for (int i = 0; i < fileAction.environmentalPreconditions.Length; i++) {
-				int preconditionID = SymbolTable.GetID(fileAction.environmentalPreconditions[i].key);
-				bool preconditionEffect = (bool)fileAction.environmentalPreconditions[i].op;
-				newAction.environmentalPreconditions.Insert(preconditionID, preconditionEffect);
-			}
-
-			// Translate preconditions
-			for (int i = 0; i < fileAction.preconditions.Length; i++) {
-				int preconditionID = SymbolTable.GetID(fileAction.preconditions[i].key);
-				bool preconditionEffect = (bool)fileAction.preconditions[i].op;
-				newAction.preconditions.Insert(preconditionID, preconditionEffect);
-			}
-
-			// Translate effects
-			for (int i = 0; i < fileAction.effects.Length; i++) {
-				int effectID = SymbolTable.GetID(fileAction.effects[i].key);
-				bool effectEffect = (bool)fileAction.effects[i].op;
-				if (newAction.effects == null) {
-					newAction.effects = new OrderedMap<bool>();
-				}
-				newAction.effects.Insert(effectID, effectEffect);
-			}
+			TranslatePreconditions(fileAction.environmentalPreconditions, newAction.environmentalPreconditions);
+			TranslatePreconditions(fileAction.preconditions, newAction.preconditions);
+			TranslateEffects(fileAction.effects, ref newAction.effects);
 
 			return newAction;
 		}
+
+		private static string ExtractName(string fullName) {
+			int underscoreIndex = fullName.IndexOf('_');
+			return (underscoreIndex >= 0) ? fullName.Substring(0, underscoreIndex) : fullName;
+		}
+
+		private static int ExtractParameterID(string fullName) {
+			int underscoreIndex = fullName.IndexOf('_');
+			if (underscoreIndex >= 0 && underscoreIndex < fullName.Length - 1) {
+				string parameter = fullName.Substring(underscoreIndex + 1);
+				return SymbolTable.GetID(parameter);
+			}
+			return 0;
+		}
+
+		private static void TranslatePreconditions(FileAction.WorldState[] preconditions, OrderedMap<bool> targetList) {
+			for (int i = 0; i < preconditions.Length; i++) {
+				int preconditionID = SymbolTable.GetID(preconditions[i].key);
+				bool preconditionEffect = (bool)preconditions[i].op;
+				targetList.Insert(preconditionID, preconditionEffect);
+			}
+		}
+
+		private static void TranslateEffects(FileAction.WorldState[] effects, ref OrderedMap<bool> targetEffects) {
+			if (targetEffects == null) {
+				targetEffects = new OrderedMap<bool>();
+			}
+			for (int i = 0; i < effects.Length; i++) {
+				int effectID = SymbolTable.GetID(effects[i].key);
+				bool effectEffect = (bool)effects[i].op;
+				targetEffects.Insert(effectID, effectEffect);
+			}
+		}
+
 
 		public static void Destroy() {
 			if (instance != null) {
@@ -603,32 +691,44 @@ namespace GOBEN {
 			HashSet<int> visited = new HashSet<int>();
 			Dictionary<int, int> parent = new Dictionary<int, int>();
 
-			foreach (int i in desires) {
-				actionQueue.Enqueue(i);
-				visited.Add(i);
-			}
+			EnqueueDesires(desires, actionQueue, visited);
 
 			while (actionQueue.Count > 0) {
 				int current = actionQueue.Dequeue();
 				if (actions[current].CheckPreconditions(agent)) {
-					List<int> plan = new List<int>();
-					while (current != -1) {
-						plan.Insert(0, current);
-						current = parent.ContainsKey(current) ? parent[current] : -1;
-					}
-					return plan.ToArray();
+					return GetPlan(current, parent);
 				}
-				//using symbol table id instead of action id
-				foreach (int neighbor in actions[current].connections) {
-					int n_id = actions.ElementAt(neighbor).Key;
-					if (!visited.Contains(n_id)) {
-						actionQueue.Enqueue(n_id);
-						visited.Add(n_id);
-						parent.Add(n_id, current);
-					}
-				}
+				EnqueueNeighbors(current, actions, actionQueue, visited, parent);
 			}
 			return null;
+		}
+
+		private void EnqueueDesires(int[] desires, Queue<int> actionQueue, HashSet<int> visited) {
+			foreach (int i in desires) {
+				actionQueue.Enqueue(i);
+				visited.Add(i);
+			}
+		}
+
+		private int[] GetPlan(int current, Dictionary<int, int> parent) {
+			List<int> plan = new List<int>();
+			while (current != -1) {
+				plan.Insert(0, current);
+				current = parent.ContainsKey(current) ? parent[current] : -1;
+			}
+			return plan.ToArray();
+		}
+
+		private void EnqueueNeighbors(int current, Dictionary<int, Action> actions, Queue<int> actionQueue,
+									  HashSet<int> visited, Dictionary<int, int> parent) {
+			foreach (int neighbor in actions[current].connections) {
+				int n_id = actions.ElementAt(neighbor).Key;
+				if (!visited.Contains(n_id)) {
+					actionQueue.Enqueue(n_id);
+					visited.Add(n_id);
+					parent.Add(n_id, current);
+				}
+			}
 		}
 
 		public static float GetUtility(int actionId, Agent agent) {
@@ -710,11 +810,7 @@ namespace GOBEN {
 
 			int currentActionId = actionIds.Peek();
 			Action currentAction = ActionGraph.instance.GetAction(currentActionId);
-			if (!currentAction.CheckPreconditions(agent)) {
-				return false;
-			}
-
-			return true;
+			return currentAction.CheckPreconditions(agent);
 		}
 
 		public State Tick() {
@@ -725,16 +821,25 @@ namespace GOBEN {
 			int currentActionId = actionIds.Peek();
 			Func<int, State> currentAction = agent.actions[currentActionId];
 
-			State state = currentAction.Invoke(ActionGraph.instance.GetAction(currentActionId).parameterID);
+			State state = ExecuteCurrentAction(currentActionId, currentAction);
 
 			if (state == State.Success) {
 				actionIds.Pop();
 				return Tick(); // Call Tick again to process the next action immediately
 			} else if (state == State.Failed) {
-				actionIds.Clear();
+				ClearActionQueue();
 			}
 
 			return state;
+		}
+
+		private State ExecuteCurrentAction(int actionId, Func<int, State> action) {
+			int parameterId = ActionGraph.instance.GetAction(actionId).parameterID;
+			return action.Invoke(parameterId);
+		}
+
+		private void ClearActionQueue() {
+			actionIds.Clear();
 		}
 	}
 }

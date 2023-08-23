@@ -188,6 +188,41 @@
             "utilityBelief": "",
             "connections": [],
             "actionID": 8
+        },
+        {
+            "name": "SetAgentOfInterest",
+            "environmentalPreconditions": [],
+            "preconditions": [],
+            "effects": [
+                {
+                    "key": "HasAgentOfInterest",
+                    "op": true
+                }
+            ],
+            "utilityBelief": "",
+            "connections": [],
+            "actionID": 9
+        },
+        {
+            "name": "TalkTo",
+            "environmentalPreconditions": [],
+            "preconditions": [
+                {
+                    "key": "HasAgentOfInterest",
+                    "op": true
+                }
+            ],
+            "effects": [
+                {
+                    "key": "SocialUp",
+                    "op": true
+                }
+            ],
+            "utilityBelief": "",
+            "connections": [
+                9
+            ],
+            "actionID": 10
         }
     ]
 }

@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using GOBEN;
 using UnityEditor.UI;
 using System;
+using System.Linq;
 
 using System.Runtime.Serialization.Formatters.Binary;
 
@@ -37,10 +38,12 @@ public class NPCData {
 
 public class NPCPrefabCreator : EditorWindow {
 
-	private string NPCName = "";
+	private string NPCName = "Name";
+	private int Age = 16;
 	private Personality personality;
-	private string Home;
-	private string WorkPlace;
+	private string Home = "";
+	private string WorkPlace = "";
+	private string Description = "";
 
 	Sprite upAnimation1;
 	Sprite upAnimation2;
@@ -61,12 +64,12 @@ public class NPCPrefabCreator : EditorWindow {
 	private float agreeableness = 0.5f;
 	private float neurotism = 0.5f;
 
-	bool showUpAnimations = false;
-	bool showDownAnimations = false;
-	bool showLeftAnimations = false;
-	bool showRightAnimations = false;
-	bool showAnimations = false;
-	bool showPersonality = false;
+	bool showUpAnimations = true;
+	bool showDownAnimations = true;
+	bool showLeftAnimations = true;
+	bool showRightAnimations = true;
+	bool showAnimations = true;
+	bool showPersonality = true;
 
 	private Sprite icon;
 
@@ -88,79 +91,337 @@ public class NPCPrefabCreator : EditorWindow {
 		EditorWindow.GetWindow(typeof(NPCPrefabCreator));
 	}
 
-	
+	private void OnEnable() {
+		LoadData();
 
+		minSize = new Vector2(400, 350);
+		maxSize = new Vector2(400, 350);
+
+	}
+
+	public enum Page {
+		general,
+		personality,
+		visual
+	}
+	public Page currentPage = Page.general;
 	private void OnGUI() {
-		
+		if (currentPage == Page.general) {
+			DrawDownAnimation();
+
+			EditorGUILayout.BeginHorizontal();
+			NPCName = EditorGUILayout.TextField("NPC Name:", NPCName);
+			if (GUILayout.Button("Load")) {
+				LoadData();
+			}
+			EditorGUILayout.EndHorizontal();
+			Age = EditorGUILayout.IntField("NPC Age:", Age);
+
+			EditorGUILayout.LabelField("Character addresses");
+			Home = EditorGUILayout.TextField("Home Address: ", Home);
+			WorkPlace = EditorGUILayout.TextField("Work Address: ", WorkPlace);
+			EditorGUILayout.Space();
+			EditorGUILayout.LabelField("Description");
+			Description = EditorGUILayout.TextArea(Description, GUILayout.Height(50));
+		} else if (currentPage == Page.personality) {
+			DrawPersonality();
+		} else if (currentPage == Page.visual) {
+			//DrawAnimations();
+
+			DrawAnimationButtons();
+			GUILayout.Space(10);
+			//DrawCreatePrefabButton();
+			//DrawApplyAllButton();
+		}
+
+
+		// Button to go back
+		DrawMovementButtons();
+	}
+
+	private float buttonSize = 60f; // Size of the buttons
+	private Sprite image; // Your image texture
+	private direction currentDirection = direction.down;
+	private enum direction {
+		up, down, right, left
+	}
+	private void DrawAnimationButtons() {
+		if (image == null && downAnimation2 != null) image = downAnimation2;
+		icon = (Sprite)EditorGUILayout.ObjectField("icon", icon, typeof(Sprite), false);
+		GUILayout.FlexibleSpace();
+		GUILayout.BeginVertical();
+		GUILayout.BeginHorizontal();
+
+		GUILayout.FlexibleSpace();
+
+		GUILayout.BeginVertical();
+
+		GUILayout.FlexibleSpace();
+
+		GUILayout.BeginHorizontal();
+		GUILayout.FlexibleSpace();
+		if (GUILayout.Button("Up", GUILayout.Width(buttonSize), GUILayout.Height(buttonSize))) {
+			if (upAnimation2 != null) {
+				image = upAnimation2;
+			}
+			currentDirection = direction.up;
+		}
+		GUILayout.FlexibleSpace();
+		GUILayout.EndHorizontal();
+
+		GUILayout.BeginHorizontal();
+		GUILayout.FlexibleSpace();
+
+		GUILayout.BeginHorizontal(); // Center the "Left" and "Right" buttons
+
+		if (GUILayout.Button("Left", GUILayout.Width(buttonSize), GUILayout.Height(buttonSize))) {
+			if (downAnimation2 != null) {
+				image = leftAnimation2;
+			}
+			currentDirection = direction.left;
+		}
+
+		if (image != null)
+			DrawOnGUISpritesmall(image, 65);
+
+		if (GUILayout.Button("Right", GUILayout.Width(buttonSize), GUILayout.Height(buttonSize))) {
+			if (rightAnimation2 != null) {
+				image = rightAnimation2;
+			}
+			currentDirection = direction.right;
+		}
+
+		GUILayout.EndHorizontal(); // End centering
+
+		GUILayout.FlexibleSpace();
+		GUILayout.EndHorizontal();
+
+		GUILayout.BeginHorizontal();
+		GUILayout.FlexibleSpace();
+		if (GUILayout.Button("Down", GUILayout.Width(buttonSize), GUILayout.Height(buttonSize))) {
+			if (downAnimation2 != null) {
+				image = downAnimation2;
+			}
+			currentDirection = direction.down;
+		}
+		GUILayout.FlexibleSpace();
+		GUILayout.EndHorizontal();
+
+		GUILayout.FlexibleSpace();
+
+		GUILayout.EndVertical();
+
+		GUILayout.FlexibleSpace();
+
+		GUILayout.EndHorizontal();
+		switch (currentDirection) {
+			case direction.up:
+				DrawFoldoutAnimations(ref showUpAnimations, ref upAnimation1, ref upAnimation2, ref upAnimation3);
+				break;
+			case direction.down:
+				DrawFoldoutAnimations(ref showDownAnimations, ref downAnimation1, ref downAnimation2, ref downAnimation3);
+				break;
+			case direction.right:
+				DrawFoldoutAnimations(ref showRightAnimations, ref rightAnimation1, ref rightAnimation2, ref rightAnimation3);
+				break;
+			case direction.left:
+				DrawFoldoutAnimations(ref showLeftAnimations, ref leftAnimation1, ref leftAnimation2, ref leftAnimation3);
+				break;
+		}
+
+		GUILayout.EndVertical();
+	}
+
+
+	private void DrawMovementButtons() {
+		GUILayout.FlexibleSpace(); // Add flexible space above the buttons
+
+		// Calculate button width and height
+		float buttonWidth = 80;
+		float buttonHeight = 30;
+
+		GUILayout.BeginHorizontal(); // Start a horizontal layout group
+
+		GUILayout.BeginArea(new Rect(10, Screen.height - buttonHeight - 30, buttonWidth, buttonHeight));
+		if (currentPage != Page.general && GUILayout.Button("Back", GUILayout.Width(buttonWidth), GUILayout.Height(buttonHeight))) {
+			// Go back to the previous page
+			currentPage--;
+		}
+		GUILayout.EndArea();
+
+		GUILayout.BeginArea(new Rect(Screen.width - buttonWidth - 10, Screen.height - buttonHeight - 30, buttonWidth, buttonHeight));
+		if (currentPage != Page.visual && GUILayout.Button("Next", GUILayout.Width(buttonWidth), GUILayout.Height(buttonHeight))) {
+			// Move to the next page
+			currentPage++;
+		}
+		GUILayout.EndArea();
+
+		if (currentPage == Page.visual) {
+			// Create Prefab and Apply all buttons at the position of the Next button
+			
+
+			GUILayout.BeginArea(new Rect(Screen.width - buttonWidth - 10, Screen.height - buttonHeight - 30, buttonWidth, buttonHeight));
+			if (GUILayout.Button("Apply all", GUILayout.Width(buttonWidth), GUILayout.Height(buttonHeight))) {
+				if (EditorUtility.DisplayDialog("Confirm", "Are you sure you want to change all NPC?", "Yes", "No")) {
+					RemakeAllNPC();
+				}
+			}
+			GUILayout.EndArea();
+
+			GUILayout.BeginArea(new Rect(Screen.width - buttonWidth - 10, Screen.height - buttonHeight - 60, buttonWidth, buttonHeight));
+			if (GUILayout.Button("Save", GUILayout.Width(buttonWidth), GUILayout.Height(buttonHeight))) {
+				CreationSystem();
+			}
+			GUILayout.EndArea();
+		}
+
+		GUILayout.EndHorizontal(); // End the horizontal layout group
+	}
+
+	private void DrawDownAnimation() {
 		if (downAnimation2 != null) {
 			DrawOnGUISprite(downAnimation2);
 		}
-		EditorGUILayout.BeginHorizontal();
-		NPCName = EditorGUILayout.TextField("NPC Name:", NPCName);
-		if (GUILayout.Button("Load")) {
-			LoadData();
-		}
-		EditorGUILayout.EndHorizontal();
+	}
 
-		showPersonality = EditorGUILayout.Foldout(showPersonality, "Agent data");
-		if (showPersonality) {
-			movementSpeed = EditorGUILayout.FloatField("Agent movement speed: ",movementSpeed);
-			EditorGUILayout.Space();
-			EditorGUILayout.LabelField("Character addresses");
-			Home = EditorGUILayout.TextField("Home Address: ",Home);
-			WorkPlace = EditorGUILayout.TextField("Work Address: ", WorkPlace);
-			EditorGUILayout.Space();
-			EditorGUILayout.LabelField("Personality Values");
-			openness = EditorGUILayout.Slider("Openness",openness,0,1);
-			consciousness = EditorGUILayout.Slider("Consciousness", consciousness,0,1);
-			extroversion = EditorGUILayout.Slider("Extroversion",extroversion,0,1);
-			agreeableness = EditorGUILayout.Slider("Agreeableness",agreeableness,0,1);
-			neurotism = EditorGUILayout.Slider("Neurotism",neurotism,0,1);
-		}
+	private void DrawPersonality() {
+		EditorGUILayout.LabelField("Personality");
 
-		showAnimations = EditorGUILayout.Foldout(showAnimations, "Animations");
+		//movementSpeed = EditorGUILayout.FloatField("Agent movement speed: ", movementSpeed);
 
-		if (showAnimations) {
-			icon = (Sprite)EditorGUILayout.ObjectField("icon", icon, typeof(Sprite), false);
+		EditorGUILayout.Space();
+		EditorGUILayout.LabelField("Personality Values");
+		EditorGUILayout.Space();
+		openness = EditorGUILayout.Slider("Openness", openness, 0, 1);
+		EditorGUILayout.Space();
+		consciousness = EditorGUILayout.Slider("Consciousness", consciousness, 0, 1);
+		EditorGUILayout.Space();
+		extroversion = EditorGUILayout.Slider("Extroversion", extroversion, 0, 1);
+		EditorGUILayout.Space();
+		agreeableness = EditorGUILayout.Slider("Agreeableness", agreeableness, 0, 1);
+		EditorGUILayout.Space();
+		neurotism = EditorGUILayout.Slider("Neurotism", neurotism, 0, 1);
+		EditorGUILayout.Space();
+		string personalityDescription = GetPersonalityDescription();
+		EditorGUILayout.LabelField("Personality Description: " + personalityDescription);
 
-			animationSpeed = EditorGUILayout.FloatField("Animation Speed:", animationSpeed);
-			scrollPos = EditorGUILayout.BeginScrollView(scrollPos);
+	}
 
-			showUpAnimations = EditorGUILayout.Foldout(showUpAnimations, "Up Animation");
-			if (showUpAnimations) {
-				upAnimation1 = (Sprite)EditorGUILayout.ObjectField("Up Animation 1", upAnimation1, typeof(Sprite), false);
-				upAnimation2 = (Sprite)EditorGUILayout.ObjectField("Up Animation 2", upAnimation2, typeof(Sprite), false);
-				upAnimation3 = (Sprite)EditorGUILayout.ObjectField("Up Animation 3", upAnimation3, typeof(Sprite), false);
-			}
+	Dictionary<string, string[]> traitWords = new Dictionary<string, string[]>
+		{
+			{ "Openness", new string[] { "Imaginative", "Innovative", "Curious", "Empathetic", "Sensitive" } },
+			{ "Conscientiousness", new string[] { "Detail-oriented", "Responsible", "Efficient", "Dependable", "Anxious" } },
+			{ "Extraversion", new string[] { "Social", "Energetic", "Outgoing", "Friendly", "Assertive" } },
+			{ "Agreeableness", new string[] { "Kind", "Considerate", "Cooperative", "Compassionate", "Warm" } },
+			{ "Neuroticism", new string[] { "Anxious", "Worried", "Nervous", "Sensitive", "Emotional" } }
+		};
 
-			showDownAnimations = EditorGUILayout.Foldout(showDownAnimations, "Down Animation");
-			if (showDownAnimations) {
-				downAnimation1 = (Sprite)EditorGUILayout.ObjectField("Down Animation 1", downAnimation1, typeof(Sprite), false);
-				downAnimation2 = (Sprite)EditorGUILayout.ObjectField("Down Animation 2", downAnimation2, typeof(Sprite), false);
-				downAnimation3 = (Sprite)EditorGUILayout.ObjectField("Down Animation 3", downAnimation3, typeof(Sprite), false);
-			}
 
-			showLeftAnimations = EditorGUILayout.Foldout(showLeftAnimations, "Left Animation");
-			if (showLeftAnimations) {
-				leftAnimation1 = (Sprite)EditorGUILayout.ObjectField("Left Animation 1", leftAnimation1, typeof(Sprite), false);
-				leftAnimation2 = (Sprite)EditorGUILayout.ObjectField("Left Animation 2", leftAnimation2, typeof(Sprite), false);
-				leftAnimation3 = (Sprite)EditorGUILayout.ObjectField("Left Animation 3", leftAnimation3, typeof(Sprite), false);
-			}
+	public string GetPersonalityDescription() {
+		if (AllTraitsAtValue(0)) return "Apathetic";
+		if (AllTraitsAtValue(0.5f)) return "Neutral";
+		if (AllTraitsAtValue(1)) return "Exceptional";
 
-			showRightAnimations = EditorGUILayout.Foldout(showRightAnimations, "Right Animation");
-			if (showRightAnimations) {
-				rightAnimation1 = (Sprite)EditorGUILayout.ObjectField("Right Animation 1", rightAnimation1, typeof(Sprite), false);
-				rightAnimation2 = (Sprite)EditorGUILayout.ObjectField("Right Animation 2", rightAnimation2, typeof(Sprite), false);
-				rightAnimation3 = (Sprite)EditorGUILayout.ObjectField("Right Animation 3", rightAnimation3, typeof(Sprite), false);
-			}
-			EditorGUILayout.EndScrollView();
+		int[] orderIndex = { 0, 1, 2, 3, 4 };
+		float[] traits = { openness, consciousness, extroversion, agreeableness, neurotism };
+
+		// Create a custom comparer that sorts based on the traits array
+		Array.Sort(orderIndex, (index1, index2) => traits[index2].CompareTo(traits[index1]));
+
+		var highestTraitIndex = orderIndex[0];
+		var secondHighestTraitIndex = orderIndex[1];
+
+		if (traits[highestTraitIndex] - traits[secondHighestTraitIndex] >= 0.5f) {
+			secondHighestTraitIndex = orderIndex[0];
 		}
 
+		var highestTraitKey = traitWords.ElementAt(highestTraitIndex).Key;
+
+		// Return the word from the dictionary using the trait keys
+		return traitWords[highestTraitKey][secondHighestTraitIndex];
+	}
+
+	public bool AllTraitsAtValue(float val) {
+		return openness == val && consciousness == val && extroversion == val && agreeableness == val && neurotism == val;
+	}
+
+
+
+	private void DrawFoldoutAnimations(ref bool show, ref Sprite animation1, ref Sprite animation2, ref Sprite animation3) {
+		
+		EditorGUILayout.LabelField("Frames");
+
+		EditorGUI.indentLevel++; // Increase the indent level
+
+		GUILayout.Space(2); // Add a small space before the horizontal layout
+
+		GUILayout.BeginHorizontal();
+		GUILayout.FlexibleSpace(); // Center the following content
+
+		// Create a custom style for preview boxes
+		GUIStyle boxStyle = new GUIStyle(GUI.skin.box);
+		boxStyle.fixedWidth = 70; // Fixed width for the preview box
+		boxStyle.fixedHeight = 60; // Fixed height for the preview box
+
+		GUILayout.BeginHorizontal();
+
+		// Draw the ObjectFields with preview boxes using EditorGUILayout
+		animation1 = (Sprite)EditorGUILayout.ObjectField(animation1, typeof(Sprite), false, GUILayout.Width(70), GUILayout.Height(60));
+		animation2 = (Sprite)EditorGUILayout.ObjectField(animation2, typeof(Sprite), false, GUILayout.Width(70), GUILayout.Height(60));
+		animation3 = (Sprite)EditorGUILayout.ObjectField(animation3, typeof(Sprite), false, GUILayout.Width(70), GUILayout.Height(60));
+
+		GUILayout.EndHorizontal();
+
+		GUILayout.FlexibleSpace(); // Center the following content
+		GUILayout.EndHorizontal();
+
+		EditorGUI.indentLevel--; // Decrease the indent level
+
+	}
+
+
+	void DrawOnGUISpritesmall(Sprite aSprite, float targetSize) {
+		Rect c = aSprite.rect;
+		float spriteW = c.width;
+		float spriteH = c.height;
+		float aspectRatio = spriteW / spriteH;
+
+		GUILayout.FlexibleSpace(); // Center the sprite vertically
+
+		GUILayout.BeginHorizontal();
+		GUILayout.FlexibleSpace(); // Center the sprite horizontally
+
+		Rect rect = GUILayoutUtility.GetRect(targetSize * aspectRatio, targetSize);
+
+		GUILayout.FlexibleSpace();
+		GUILayout.EndHorizontal();
+
+		GUILayout.FlexibleSpace();
+
+		if (Event.current.type == EventType.Repaint) {
+			var tex = aSprite.texture;
+			c.xMin /= tex.width;
+			c.xMax /= tex.width;
+			c.yMin /= tex.height;
+			c.yMax /= tex.height;
+
+			if (rect.width > rect.height) {
+				rect.width = rect.height * aspectRatio;
+			} else {
+				rect.height = rect.width / aspectRatio;
+			}
+
+			GUI.DrawTextureWithTexCoords(rect, tex, c);
+		}
+	}
+
+	private void DrawCreatePrefabButton() {
 		if (GUILayout.Button("Create Prefab")) {
 			CreationSystem();
 		}
+	}
 
-		GUILayout.Space(10);
+	private void DrawApplyAllButton() {
 		if (GUILayout.Button("Apply all", GUILayout.Width(60), GUILayout.Height(20))) {
 			if (EditorUtility.DisplayDialog("Confirm", "Are you sure you want to change all NPC?", "Yes", "No")) {
 				RemakeAllNPC();
@@ -169,6 +430,23 @@ public class NPCPrefabCreator : EditorWindow {
 	}
 
 	void CreationSystem() {
+		if (NPCName == "Name") {
+			DateTime currentTime = DateTime.Now;
+			string formattedTime = currentTime.ToString("yyMMddHHmm");
+			ShowNotification(new GUIContent("Saving current advances, but NPC remains default"));
+			NPCName += formattedTime;
+		}
+
+		if (NPCName == "") {
+			ShowNotification(new GUIContent("NPC name is empty"));
+			return;
+		}
+
+		if (upAnimations == null || downAnimations == null || leftAnimations == null || rightAnimations == null) {
+			ShowNotification(new GUIContent("One or more animation arrays is empty"));
+			return;
+		}
+
 		prefab_Blank = (GameObject)AssetDatabase.LoadAssetAtPath("Assets/NPCdata/Blank.prefab", typeof(GameObject));
 
 		SpriteRenderer[] childRenderers = prefab_Blank.GetComponentsInChildren<SpriteRenderer>();
@@ -176,7 +454,7 @@ public class NPCPrefabCreator : EditorWindow {
 		childRenderers[0].sprite = downAnimation2;
 		childRenderers[1].sprite = icon;
 
-		personality = new Personality(openness,consciousness,extroversion,agreeableness,neurotism);
+		personality = new Personality(openness, consciousness, extroversion, agreeableness, neurotism);
 
 		upAnimations = new Sprite[] { upAnimation1, upAnimation2, upAnimation3 };
 		downAnimations = new Sprite[] { downAnimation1, downAnimation2, downAnimation3 };
@@ -185,15 +463,6 @@ public class NPCPrefabCreator : EditorWindow {
 
 		string savePath = CreateFolder(NPCName);
 
-
-		if (NPCName == "") {
-			ShowNotification(new GUIContent("NPC name is empty"));
-			return;
-		}
-		if (upAnimations == null || downAnimations == null || leftAnimations == null || rightAnimations == null) {
-			ShowNotification(new GUIContent("One or more animation arrays is empty"));
-			return;
-		}
 		SaveData();
 		CreateAnimations(savePath);
 		CreateNPCPrefab();
@@ -276,7 +545,6 @@ public class NPCPrefabCreator : EditorWindow {
 
 
 	public void CreateNPCPrefab() {
-		
 
 		GameObject originalPrefab = (GameObject)AssetDatabase.LoadAssetAtPath("Assets/NPCdata/Blank.prefab", typeof(GameObject));
 
@@ -284,7 +552,7 @@ public class NPCPrefabCreator : EditorWindow {
 		SpriteRenderer prefabRenderer = newPrefabInstance.transform.GetChild(0).GetComponent<SpriteRenderer>();
 
 		prefabRenderer.sprite = downAnimation2;
-		
+
 		Animator animator = newPrefabInstance.transform.GetChild(0).GetComponent<Animator>();
 		animator.runtimeAnimatorController = (RuntimeAnimatorController)AssetDatabase.LoadAssetAtPath("Assets/NPCdata/" + NPCName + "/Animations/AnimatorController" + NPCName + ".controller", typeof(RuntimeAnimatorController));
 
@@ -292,6 +560,7 @@ public class NPCPrefabCreator : EditorWindow {
 		data.agent = new Agent();
 		data.agent.SetPersonality(personality);
 		data.CreateBaseBeliefs(Home, WorkPlace);
+
 
 		data.SaveAgentData(NPCName);
 
@@ -309,7 +578,7 @@ public class NPCPrefabCreator : EditorWindow {
 
 		DestroyImmediate(newPrefabInstance);
 
-		
+
 	}
 
 	void SetAnimatorActiveInstances() {
@@ -329,12 +598,12 @@ public class NPCPrefabCreator : EditorWindow {
 		string path = "Assets/NPCdata/" + folderName;
 		if (!Directory.Exists(path)) {
 			Directory.CreateDirectory(path);
-			
+
 		}
-		if(!Directory.Exists(path + "/Animations")) {
+		if (!Directory.Exists(path + "/Animations")) {
 			Directory.CreateDirectory(path + "/Animations");
 		}
-		return path+ "/";
+		return path + "/";
 	}
 
 	AnimationClip CreateAnimationClip(Sprite[] sprites, string clipName, float speed) {
@@ -459,7 +728,7 @@ public class NPCPrefabCreator : EditorWindow {
 		data.neurotism = neurotism;
 		data.extroversion = extroversion;
 
-		data.iconName = "Sprites/Faces/"+icon.name;
+		data.iconName = "Sprites/Faces/" + icon.name;
 
 		string[] upAnimationPaths = new string[3];
 		for (int i = 0; i < upAnimations.Length; i++) {
@@ -507,8 +776,8 @@ public class NPCPrefabCreator : EditorWindow {
 			animationSpeed = data.AnimationSpeed;
 			movementSpeed = data.movementSpeed;
 
-			if(data.iconName != null)
-			icon = Resources.Load<Sprite>(data.iconName);
+			if (data.iconName != null)
+				icon = Resources.Load<Sprite>(data.iconName);
 
 			upAnimation1 = GetSpriteByName(data.upAnimationNames[0]);
 			upAnimation2 = GetSpriteByName(data.upAnimationNames[1]);
@@ -531,7 +800,7 @@ public class NPCPrefabCreator : EditorWindow {
 
 			openness = data.openness;
 			consciousness = data.consciousness;
-			agreeableness =data.agreeableness;
+			agreeableness = data.agreeableness;
 			extroversion = data.extroversion;
 			neurotism = data.neurotism;
 		}

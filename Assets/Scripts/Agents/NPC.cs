@@ -13,17 +13,24 @@ using GOBEN;
 
 public class NPC : MonoBehaviour {
 
+	// Public properties
 	public Agent agent { get; set; }
 
+	// Essential properties
 	public string homeAddress = "";
 	public string workAddress = "";
 	public int money = 0;
+
+	// Hidden properties
 	[HideInInspector] public List<Agent> closeAgents;
 	[HideInInspector] public DynamicDisableable dynamicDisableable;
 	[HideInInspector] public Schedule schedule;
+
+	// Flags and counters
 	private bool checkingAgents = false;
 	private int RandomFrames;
 
+	// Components and systems
 	public NPCMovement mover;
 	public NPCActioner actioner;
 	public NPCVitality vitality;
@@ -31,15 +38,22 @@ public class NPC : MonoBehaviour {
 	public NPCEconomy economy;
 	public NPCSocial social;
 
+	// Interaction with other agents
+	public NPC agentOfInterest;
+
+	// Conversation related
+	private float conversationDuration;
+	private bool isTalking;
+
+	// Methods to set components
 	public void SetMover(NPCMovement m) => mover = m;
 	public void SetActioner(NPCActioner a) => actioner = a;
 	public void SetVitality(NPCVitality v) => vitality = v;
 	public void SetInventory(NPCInventory i) => inventory = i;
 	public void SetEconomy(NPCEconomy e) => economy = e;
 	public void SetSocial(NPCSocial s) => social = s;
-
 	void Start() {
-
+		if (agent == null) agent = new Agent();
 		RandomFrames = UnityEngine.Random.Range(0, 60);
 		mover = GetComponent<NPCMovement>();
 		dynamicDisableable = GetComponent<DynamicDisableable>();
@@ -50,21 +64,26 @@ public class NPC : MonoBehaviour {
 
 
 	void Update() {
-		//if (mover.path != null && mover.path.Count == 0) {
-		//	if (mover.LastNode.id == (string)agent.GetBelief(Address.Home).value) {
-		//		mover.GetPath((string)agent.GetBelief(Address.Work).value);
-		//	} else {
-		//		mover.GetPath((string)agent.GetBelief(Address.Home).value);
-		//	}
-		//}
+		HandleDebugInput();
+		UpdateAgent();
+		UpdateAgentDetection();
+		UpdatePlayerInteraction();
+	}
+
+	void HandleDebugInput() {
 		if (Input.GetKeyDown(KeyCode.P)) {
-			agent.AddDesire(new Desire("InWork",true));
+			agent.AddDesire(new Desire("InWork", true));
 		}
 		if (Input.GetKeyDown(KeyCode.O)) {
-			agent.AddDesire(new Desire("InHome",true));
+			agent.AddDesire(new Desire("InHome", true));
 		}
-		
+	}
+
+	void UpdateAgent() {
 		agent.Update(Time.deltaTime);
+	}
+
+	void UpdateAgentDetection() {
 		if (!checkingAgents) {
 			checkingAgents = true;
 			StartCoroutine(DelayedFunction(5 + RandomFrames, () => {
@@ -72,15 +91,13 @@ public class NPC : MonoBehaviour {
 				checkingAgents = false;
 			}));
 		}
+	}
 
+	void UpdatePlayerInteraction() {
 		if (dynamicDisableable.visible) {
 			CheckForPlayer(1f);
 			ResumeMovementIfPlayerIsGone(1f);
 		}
-	}
-
-	public void AddDesire(string desire) {
-
 	}
 
 	public IEnumerator DelayedFunction(int frameDelay, System.Action function) {
@@ -91,25 +108,109 @@ public class NPC : MonoBehaviour {
 	}
 
 	public void Test() {
-		if (Utils.WorldState.worldstate == null) Utils.WorldState.SetUp();
-		ST.Destroy();
-		ActionGraph.Destroy();
-		LoadAgentData(gameObject.name);
+		PrepareTestingArea();
 
 		//ActionGraph.MakePlan(ST.GetID("Hungry"),false,agent);
 		agent.AddDesire(new Desire("InWork", true));
 
+		SimulateUpdate(1000);
+	}
+
+	private void PrepareTestingArea() {
+		if (Utils.WorldState.worldstate == null) Utils.WorldState.SetUp();
+		ST.Destroy();
+		ActionGraph.Destroy();
+		LoadAgentData(gameObject.name);
+	}
+
+	private void SimulateUpdate(int loops = 10) {
 		int counter = 0;
-		while (counter < 1000) {
+		while (counter < loops) {
 			counter++;
 			agent.Update(Time.deltaTime);
 		}
-/*
-		Agent agent = new Agent();
-		agent.beliefs.Insert(SY("Healthy"),new Belief("Healthy",true));
+	}
+	public State SetAgentOfInterest(int id = 0) {
+		List<NPC> availableNPCs = FindAvailableNPCs();
 
-		print(heal.CheckPreconditions(agent));
-*/
+		if (availableNPCs.Count > 0) {
+			NPC newAgent = SelectRandomNPC(availableNPCs);
+
+			SetNewAgentOfInterest(newAgent);
+			agent.UpdateBelief("HasAgentOfInterest", true);
+			return State.Success;
+		} else {
+			HandleNoAvailableNPCs();
+			agent.UpdateBelief("HasAgentOfInterest", false);
+			return State.Failed;
+		}
+	}
+
+	List<NPC> FindAvailableNPCs() {
+		NPC[] allNPCs = FindObjectsOfType<NPC>();
+		List<NPC> availableNPCs = new List<NPC>();
+
+		foreach (NPC npc in allNPCs) {
+			if (npc != this) {
+				availableNPCs.Add(npc);
+			}
+		}
+
+		return availableNPCs;
+	}
+
+	NPC SelectRandomNPC(List<NPC> npcList) {
+		int randomIndex = UnityEngine.Random.Range(0, npcList.Count);
+		return npcList[randomIndex];
+	}
+
+	void SetNewAgentOfInterest(NPC newAgent) {
+		agentOfInterest = newAgent;
+		Debug.Log("Agent of interest has been set to NPC: " + newAgent.name);
+	}
+
+	void HandleNoAvailableNPCs() {
+		Debug.Log("Error: No other NPCs found in the scene.");
+	}
+
+
+	public State TalkTo(int id = 0) {
+		if (agentOfInterest == null) {
+			HandleNoAgentOfInterest();
+			return State.Failed;
+		}
+
+		if (!isTalking) {
+			StartConversation();
+		}
+
+		UpdateConversationDuration();
+
+		if (conversationDuration <= 0f) {
+			EndConversation();
+			return State.Success;
+		}
+
+		return State.Running;
+	}
+
+	void HandleNoAgentOfInterest() {
+		Debug.Log("Error: agentOfInterest is not set.");
+	}
+
+	void StartConversation() {
+		isTalking = true;
+		conversationDuration = 1.0f;
+		Debug.Log("Started talking to " + agentOfInterest.name);
+	}
+
+	void UpdateConversationDuration() {
+		conversationDuration -= Time.deltaTime;
+	}
+
+	void EndConversation() {
+		isTalking = false;
+		Debug.Log("Finished talking to " + agentOfInterest.name);
 	}
 
 	public State BuyFood(int id = 0) {
@@ -128,21 +229,11 @@ public class NPC : MonoBehaviour {
 
 	public State WalkTo(int id = 0) {
 		Debug.Log("walking to "+ id);
-		//return State.Success;
-		int node;
-		if(id == ST.GetID("Home")) {
-			node = ST.GetID(homeAddress);
-		} else if(id == ST.GetID("Work")) {
-			node = ST.GetID(workAddress);
-		} else {
-			node = id;
-		}
+
+		int node = SetNode(id);
+
 		if (mover.LastNode.id_num == node) {
-			//logic to update beliefs
-			string placeBelief = "At" + ST.GetString(id);
-			print(placeBelief);
-			agent.UpdateBelief(placeBelief, true);
-			return State.Success;
+			return ArrivedAtDestination(ST.GetString(id));
 		}
 
 		if(!mover.walking || mover.targetNode != node) {
@@ -152,11 +243,29 @@ public class NPC : MonoBehaviour {
 		return State.Running;
 	}
 
+	private int SetNode(int id) {
+		int node;
+		if (id == ST.GetID("Home")) {
+			node = ST.GetID(homeAddress);
+		} else if (id == ST.GetID("Work")) {
+			node = ST.GetID(workAddress);
+		} else {
+			node = id;
+		}
+		return node;
+	}
+
+	private State ArrivedAtDestination(string destination) {
+		string placeBelief = "At" + destination;
+		agent.UpdateBelief(placeBelief, true);
+		return State.Success;
+	}
+
 	public State Enter(int id = 0) {
 		Debug.Log("entering to " + id);
 		transform.GetChild(0).gameObject.SetActive(false);
 		agent.UpdateBelief("Outside", false);
-		//check if door is open
+
 		return State.Success;
 	}
 
@@ -180,6 +289,10 @@ public class NPC : MonoBehaviour {
 
 		int[] keys = ActionGraph.GetActionKeys(Application.dataPath + "/ActionData/ActionFile.json");
 
+		ApplyNpcActionsToAgent(agent, npcActions, keys);
+	}
+
+	private void ApplyNpcActionsToAgent(Agent agent, Dictionary<string, Func<int, State>> npcActions, int[] keys) {
 		foreach (int key in keys) {
 			string functionName = ST.GetString(ActionGraph.instance.GetAction(key).function);
 			if (npcActions.TryGetValue(functionName, out Func<int, State> npcAction)) {
@@ -195,9 +308,8 @@ public class NPC : MonoBehaviour {
 		MethodInfo[] methods = GetType().GetMethods(bindingFlags);
 
 		foreach (MethodInfo method in methods) {
-			// Check if the method returns a State and has a single integer parameter
-			if (method.ReturnType == typeof(State) && method.GetParameters().Length == 1 && method.GetParameters()[0].ParameterType == typeof(int)) {
-				Func<int, State> func = (Func<int, State>)Delegate.CreateDelegate(typeof(Func<int, State>), this, method);
+			if (IsValidMethod(method)) {
+				Func<int, State> func = CreateDelegateForMethod(method);
 				npcActions[method.Name] = func;
 			}
 		}
@@ -205,8 +317,15 @@ public class NPC : MonoBehaviour {
 		return npcActions;
 	}
 
-	
+	bool IsValidMethod(MethodInfo method) {
+		return method.ReturnType == typeof(State) &&
+			   method.GetParameters().Length == 1 &&
+			   method.GetParameters()[0].ParameterType == typeof(int);
+	}
 
+	Func<int, State> CreateDelegateForMethod(MethodInfo method) {
+		return (Func<int, State>)Delegate.CreateDelegate(typeof(Func<int, State>), this, method);
+	}
 
 
 	public void CreateBaseBeliefs(string home, string workPlace) {
@@ -216,8 +335,15 @@ public class NPC : MonoBehaviour {
 	}
 
 	public void SaveAgentData(string name) {
-		string path = Application.dataPath + "/NPCdata/" + name + "/agentData" + name + ".data";
+		string path = GetAgentDataPath(name);
+		SerializeAgentData(path);
+	}
 
+	string GetAgentDataPath(string name) {
+		return Application.dataPath + "/NPCdata/" + name + "/agentData" + name + ".data";
+	}
+
+	void SerializeAgentData(string path) {
 		BinaryFormatter formatter = new BinaryFormatter();
 		FileStream stream = new FileStream(path, FileMode.Create);
 
@@ -226,29 +352,50 @@ public class NPC : MonoBehaviour {
 	}
 
 	public void LoadAgentData(string name) {
-		// Load agent data
-		string agentDataPath = Application.dataPath + "/NPCdata/" + name + "/agentData" + name + ".data";
+		LoadAgent(name);
+		LoadScheduleAndInitializeActions(name);
+	}
+
+	void LoadAgent(string name) {
+		string agentDataPath = GetAgentDataPath(name);
+
 		if (File.Exists(agentDataPath)) {
 			BinaryFormatter formatter = new BinaryFormatter();
 			FileStream stream = new FileStream(agentDataPath, FileMode.Open);
-			agent = formatter.Deserialize(stream) as GOBEN.Agent; //203
+			agent = formatter.Deserialize(stream) as GOBEN.Agent; // 203
 			stream.Close();
 		}
+
 		agent.LoadNewAgent();
+	}
 
-		// Load schedule
-		string schedulePath = Application.dataPath + "/NPCdata/" + name + "/" + name + "_Schedule.json";
-		if (File.Exists(schedulePath)) {
-			string json = File.ReadAllText(schedulePath);
-			schedule = JsonConvert.DeserializeObject<Schedule>(json);
-		} else {
-			// Create a new schedule if the file doesn't exist
-			schedule = new Schedule(name);
-		}
-
+	void LoadScheduleAndInitializeActions(string name) {
+		schedule = LoadSchedule(name);
 		InitializeActions(agent);
 	}
 
+	private Schedule LoadSchedule(string name) {
+		string schedulePath = GetSchedulePath(name);
+
+		if (File.Exists(schedulePath)) {
+			string json = File.ReadAllText(schedulePath);
+			return DeserializeSchedule(json);
+		} else {
+			return CreateNewSchedule(name);
+		}
+	}
+
+	string GetSchedulePath(string name) {
+		return Application.dataPath + "/NPCdata/" + name + "/" + name + "_Schedule.json";
+	}
+
+	Schedule DeserializeSchedule(string json) {
+		return JsonConvert.DeserializeObject<Schedule>(json);
+	}
+
+	Schedule CreateNewSchedule(string name) {
+		return new Schedule(name);
+	}
 	public void DetectOtherAgents(float detectionRange) {
 		int otherAgentsLayerMask = 1 << LayerMask.NameToLayer("Agent");
 		Collider[] hitColliders = Physics.OverlapSphere(transform.position, detectionRange, otherAgentsLayerMask);
@@ -285,7 +432,6 @@ public class NPC : MonoBehaviour {
 			}
 		}
 	}
-
 
 
 	public void ResumeMovementIfPlayerIsGone(float detectionRadius) {
